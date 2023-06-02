@@ -27,7 +27,7 @@ def select_animated_root(*args):
     else:
         cmds.textField('animated_textField', edit=True, text=animated_root[0])
 
-def apply_animation(*args):
+def apply_animation(type_of_node):
     if not target_root:
         cmds.confirmDialog(title='Error', message='Please select a root object for "target" first.', button='OK')
         return
@@ -38,7 +38,12 @@ def apply_animation(*args):
     
     animated_children = cmds.listRelatives(animated_root[0], allDescendents=True, type='transform',path=True)
     animated_children.append(animated_root[0])
-    target_children = cmds.listRelatives(target_root[0], allDescendents=True, type='joint',path=True) 
+    target_children = cmds.listRelatives(target_root[0], allDescendents=True, type=type_of_node,path=True) 
+    isShapes = type_of_node=='nurbsCurve'
+    
+    if isShapes:
+        target_children =  [ get_transform_of_shape(relative) for relative in target_children]
+        
     target_children.append(target_root[0])
     totalCount=len(animated_children)
     current=0
@@ -93,6 +98,6 @@ cmds.text(label='Select the root object for "animated":')
 animated_text_field = cmds.textField('animated_textField', editable=False)
 animated_button = cmds.button(label='Select', command=select_animated_root)
 
-apply_button = cmds.button(label='Apply Animation', command=apply_animation)
-
+apply_button = cmds.button(label='Apply Animation', command=lambda *_: apply_animation('joint'))
+apply_button = cmds.button(label='Apply Animation to controls(nurbsCurve)', command=lambda *_: apply_animation('nurbsCurve'))
 cmds.showWindow(window)
