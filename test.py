@@ -85,13 +85,13 @@ if cmds.window('animation_transfer_window', exists=True):
 window = cmds.window('animation_transfer_window', title='Animation Transfer', widthHeight=(400, 200))
 cmds.columnLayout(adjustableColumn=True)
 
-cmds.text(label='Select the root object for "target":')
+cmds.text(label='Select the root object for "Target to apply animation":')
 target_text_field = cmds.textField('target_textField', editable=False)
-target_button = cmds.button(label='Select', command=select_target_root)
+target_button = cmds.button(label='Select Target Root', command=select_target_root)
 
-cmds.text(label='Select the root object for "animated":')
+cmds.text(label='Select the root object for "Animotive Export":')
 animated_text_field = cmds.textField('animated_textField', editable=False)
-animated_button = cmds.button(label='Select', command=select_animated_root)
+animated_button = cmds.button(label='Select Animotive Export Root', command=select_animated_root)
 
 apply_button = cmds.button(label='Apply Animation', command=apply_animation)
 
