@@ -4,7 +4,7 @@ import math
 
 created_parentConstraints = []
 tPoseRotations = {}
-
+lock_value_cache = {}
 
 def select_target_root(*args):
     global target_root
@@ -31,7 +31,28 @@ def select_animated_root(*args):
 
 
 def get_transform_of_shape(relative):
-    pass
+    transform_node = cmds.listRelatives(relative, parent=True)
+    return transform_node[0]
+
+def cache_locks(objects):
+    for object in objects:
+        lockX= cmds.getAttr(object+'.rotateX', lock=True)
+        lockY= cmds.getAttr(object+'.rotateY', lock=True)
+        lockZ= cmds.getAttr(object+'.rotateZ', lock=True)
+        
+        lock_value_cache[object]= [lockX,lockY,lockZ]
+        
+        lockX= cmds.setAttr(object+'.rotateX', lock=False)
+        lockY= cmds.setAttr(object+'.rotateY', lock=False)
+        lockZ= cmds.setAttr(object+'.rotateZ', lock=False)
+
+def apply_lock_cache_back():
+    for item in lock_value_cache:
+        cmds.setAttr(item+'.rotateX', lock=lock_value_cache[lock_value_cache][0])
+        cmds.setAttr(item+'.rotateX', lock=lock_value_cache[lock_value_cache][1])
+        cmds.setAttr(item+'.rotateX', lock=lock_value_cache[lock_value_cache][2])
+
+        
 
 
 def apply_animation(type_of_node):
@@ -47,12 +68,14 @@ def apply_animation(type_of_node):
     animated_children.append(animated_root[0])
     target_children = cmds.listRelatives(target_root[0], allDescendents=True, type=type_of_node, path=True)
     is_shapes = type_of_node == 'nurbsCurve'
-
+    
+    
     if is_shapes:
         target_children = [get_transform_of_shape(relative) for relative in target_children]
 
     target_children.append(target_root[0])
 
+    cache_locks(target_children)
     reset_rotations(animated_children)
     create_parent_constraint(animated_children, target_children)
 
@@ -65,6 +88,7 @@ def apply_animation(type_of_node):
     cmds.bakeResults(target_children, t=(minTIME, maxTIME), simulation=True)
 
     delete_parent_constraint()
+    apply_lock_cache_back()
 
 
 def reset_rotations(object_list):
