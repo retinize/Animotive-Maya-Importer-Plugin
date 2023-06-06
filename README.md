@@ -33,6 +33,7 @@ Note: If no objects or multiple objects are selected when selecting the roots, a
 - **Parent Constraints Creation:** Creates parent constraints between corresponding objects in the source and target rigs, ensuring that the animation is transferred correctly.
 
 - **Parent Constraints Deletion:** Deletes the parent constraints after the animation has been transferred, allowing the rigs to move independently again.
+- **Time Reset:** Resets the current time to 0 before starting any operation.
 
 ## Requirements
 
