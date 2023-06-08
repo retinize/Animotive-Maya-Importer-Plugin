@@ -43,20 +43,17 @@ def apply_animation(*args):
     animated_children.append(animated_root[0])
     target_children = cmds.listRelatives(target_root[0], allDescendents=True, type='joint', path=True)
     target_children.append(target_root[0])
-    totalCount = len(animated_children)
-    current = 0
-    targetRootName = animated_root[0].split(':')[-1]
 
     reset_rotations(animated_children)
     create_parent_constraint(animated_children, target_children)
 
-    clipduration = cmds.keyframe(animated_children[-1], q=True)
+    clip_duration = cmds.keyframe(animated_children[-1], q=True)
     cmds.playbackOptions(edit=True, animationStartTime=0)
-    cmds.playbackOptions(edit=True, animationEndTime=clipduration[-1])
-    minTIME = cmds.playbackOptions(edit=True, minTime=0)
-    maxTIME = cmds.playbackOptions(edit=True, maxTime=clipduration[-1])
+    cmds.playbackOptions(edit=True, animationEndTime=clip_duration[-1])
+    min_time = cmds.playbackOptions(edit=True, minTime=0)
+    max_time = cmds.playbackOptions(edit=True, maxTime=clip_duration[-1])
 
-    cmds.bakeResults(target_children, t=(minTIME, maxTIME), simulation=True)
+    cmds.bakeResults(target_children, t=(min_time, max_time), simulation=True)
 
     delete_parent_constraint()
 
