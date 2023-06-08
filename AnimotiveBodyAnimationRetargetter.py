@@ -2,6 +2,10 @@ import maya.cmds as cmds
 import re
 import math
 
+target_root = None
+user_selected_root_bone=None
+animated_root= None
+
 created_parentConstraints = []
 tPoseRotations = {}
 
@@ -18,6 +22,18 @@ def select_target_root(*args):
         cmds.textField('target_textField', edit=True, text=target_root[0])
 
 
+def select_root_bone(*args):
+    global user_selected_root_bone
+    user_selected_root_bone = cmds.ls(selection=True, type='transform')
+
+    if len(user_selected_root_bone) != 1:
+        user_selected_root_bone = None
+        cmds.textField('user_selected_root_bone_textField', edit=True, text='')
+        cmds.confirmDialog(title='Error', message='Please select the root joint', button='OK')
+    else:
+        cmds.textField('user_selected_root_bone_textField', edit=True, text=user_selected_root_bone[0])
+
+
 def select_animated_root(*args):
     global animated_root
     animated_root = cmds.ls(selection=True, type='transform')
@@ -32,11 +48,15 @@ def select_animated_root(*args):
 
 def apply_animation(*args):
     if not target_root:
-        cmds.confirmDialog(title='Error', message='Please select a root object for "target" first.', button='OK')
+        cmds.confirmDialog(title='Error', message='Please select a root of the target where you want the animation to be applied.', button='OK')
         return
     if not animated_root:
-        cmds.confirmDialog(title='Error', message='Please select a root object for "animated" first.', button='OK')
+        cmds.confirmDialog(title='Error', message='Please select a root object of the animotive export', button='OK')
         return
+    if not user_selected_root_bone:
+        cmds.confirmDialog(title='Error', message='Please select a root bone joint of the target', button='OK')
+        return
+
     cmds.currentTime(0, edit=True)
 
     animated_children = cmds.listRelatives(animated_root[0], allDescendents=True, type='transform', path=True)
@@ -72,7 +92,12 @@ def create_parent_constraint(animated_children, target_children):
         animated_child_name = animated_child.split(':')[-1]
         for target_child in target_children:
             if animated_child_name in target_child:
-                constraint = cmds.parentConstraint(animated_child, target_child, mo=True, st=['x', 'y', 'z'])
+                is_root = target_child == user_selected_root_bone[0]
+                constraint = None
+                if is_root:
+                    constraint = cmds.parentConstraint(animated_child, target_child, mo=True)
+                else:
+                    constraint = constraint = cmds.parentConstraint(animated_child, target_child, mo=True, st=['x', 'y', 'z'])
                 created_parentConstraints.append(constraint)
 
 
@@ -85,17 +110,24 @@ def delete_parent_constraint():
 if cmds.window('animation_transfer_window', exists=True):
     cmds.deleteUI('animation_transfer_window')
 
-window = cmds.window('animation_transfer_window', title='Animation Transfer', widthHeight=(400, 200))
+window = cmds.window('animation_transfer_window', title='Animation Transfer', widthHeight=(600, 250))
+cmds.window(window,edit=True,sizeable=False)
 cmds.columnLayout(adjustableColumn=True)
 
 cmds.text(label='Select the root object for "Target to apply animation":')
 target_text_field = cmds.textField('target_textField', editable=False)
 target_button = cmds.button(label='Select Target Root', command=select_target_root)
 
+
+cmds.text(label='Select the root bone of the target object:')
+user_selected_root_bone_text_field = cmds.textField('user_selected_root_bone_textField', editable=False)
+user_selected_root_bone_button = cmds.button(label='Select Root Joint of The Target', command=select_root_bone)
+
+
 cmds.text(label='Select the root object for "Animotive Export":')
 animated_text_field = cmds.textField('animated_textField', editable=False)
 animated_button = cmds.button(label='Select Animotive Export Root', command=select_animated_root)
-
+cmds.text(label="--------------------------------------------------------------------------------------------------------------------------------------------------------------------", enable=False)
 apply_button = cmds.button(label='Apply Animation', command=apply_animation)
 
 cmds.showWindow(window)
