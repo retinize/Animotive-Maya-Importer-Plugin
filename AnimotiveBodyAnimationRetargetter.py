@@ -4,7 +4,6 @@ import math
 
 created_parentConstraints = []
 tPoseRotations = {}
-lock_value_cache = {}
 
 
 def select_target_root(*args):
@@ -31,32 +30,7 @@ def select_animated_root(*args):
         cmds.textField('animated_textField', edit=True, text=animated_root[0])
 
 
-def get_transform_of_shape(relative):
-    transform_node = cmds.listRelatives(relative, parent=True)
-    return transform_node[0]
-
-
-def cache_locks(objects):
-    for object in objects:
-        lockX = cmds.getAttr(object + '.rotateX', lock=True)
-        lockY = cmds.getAttr(object + '.rotateY', lock=True)
-        lockZ = cmds.getAttr(object + '.rotateZ', lock=True)
-
-        lock_value_cache[object] = [lockX, lockY, lockZ]
-
-        cmds.setAttr(object + '.rotateX', lock=False)
-        cmds.setAttr(object + '.rotateY', lock=False)
-        cmds.setAttr(object + '.rotateZ', lock=False)
-
-
-def apply_lock_cache_back():
-    for item in lock_value_cache:
-        cmds.setAttr(item + '.rotateX', lock=lock_value_cache[lock_value_cache][0])
-        cmds.setAttr(item + '.rotateX', lock=lock_value_cache[lock_value_cache][1])
-        cmds.setAttr(item + '.rotateX', lock=lock_value_cache[lock_value_cache][2])
-
-
-def apply_animation(type_of_node):
+def apply_animation(*args):
     if not target_root:
         cmds.confirmDialog(title='Error', message='Please select a root object for "target" first.', button='OK')
         return
@@ -67,28 +41,24 @@ def apply_animation(type_of_node):
 
     animated_children = cmds.listRelatives(animated_root[0], allDescendents=True, type='transform', path=True)
     animated_children.append(animated_root[0])
-    target_children = cmds.listRelatives(target_root[0], allDescendents=True, type=type_of_node, path=True)
-    is_shapes = type_of_node == 'nurbsCurve'
-
-    if is_shapes:
-        target_children = [get_transform_of_shape(relative) for relative in target_children]
-
+    target_children = cmds.listRelatives(target_root[0], allDescendents=True, type='joint', path=True)
     target_children.append(target_root[0])
+    totalCount = len(animated_children)
+    current = 0
+    targetRootName = animated_root[0].split(':')[-1]
 
-    cache_locks(target_children)
     reset_rotations(animated_children)
     create_parent_constraint(animated_children, target_children)
 
-    clip_duration = cmds.keyframe(animated_children[-1], q=True)
+    clipduration = cmds.keyframe(animated_children[-1], q=True)
     cmds.playbackOptions(edit=True, animationStartTime=0)
-    cmds.playbackOptions(edit=True, animationEndTime=clip_duration[-1])
-    min_time = cmds.playbackOptions(edit=True, minTime=0)
-    max_time = cmds.playbackOptions(edit=True, maxTime=clip_duration[-1])
+    cmds.playbackOptions(edit=True, animationEndTime=clipduration[-1])
+    minTIME = cmds.playbackOptions(edit=True, minTime=0)
+    maxTIME = cmds.playbackOptions(edit=True, maxTime=clipduration[-1])
 
-    cmds.bakeResults(target_children, t=(min_time, max_time), simulation=True)
+    cmds.bakeResults(target_children, t=(minTIME, maxTIME), simulation=True)
 
     delete_parent_constraint()
-    apply_lock_cache_back()
 
 
 def reset_rotations(object_list):
@@ -129,7 +99,6 @@ cmds.text(label='Select the root object for "Animotive Export":')
 animated_text_field = cmds.textField('animated_textField', editable=False)
 animated_button = cmds.button(label='Select Animotive Export Root', command=select_animated_root)
 
-apply_button = cmds.button(label='Apply Animation', command=lambda *_: apply_animation('joint'))
-apply_button = cmds.button(label='Apply Animation to controls(nurbsCurve)',
-                           command=lambda *_: apply_animation('nurbsCurve'))
+apply_button = cmds.button(label='Apply Animation', command=apply_animation)
+
 cmds.showWindow(window)
