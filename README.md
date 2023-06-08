@@ -54,7 +54,7 @@ To use this script:
 1. Open the script in the Maya script editor.
 2. Execute the script. This will open file browser for you two choose json file that's exported from Animotive.
 3. Once you finish the step 2 it'll automatically open a GUI with two buttons.
-4. In Maya, select the root of the target model, then press the "Select" button in the GUI.
+4. In Maya, select the root of the target object to apply blendshape animation, then press the "Select" button in the GUI.
 5. Press the "Apply Animation" button in the GUI to apply the face animation from a JSON file to your character.
 
 ### Description of Functions
