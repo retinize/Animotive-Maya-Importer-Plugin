@@ -43,7 +43,7 @@ Note: If no objects or multiple objects are selected when selecting the roots, a
 - **Time Reset:** Resets the current time to 0 before starting any operation.
 
 
-## 2. Face Animation Transfer
+## 2. Blendshape Animation Transfer
 
 This is a Maya script that aids in transferring face animation from a JSON file to a character within Maya.
 
