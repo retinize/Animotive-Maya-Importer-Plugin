@@ -16,9 +16,9 @@ The script opens a new window in Maya named "Animation Transfer". It contains se
 
 Click on the "Select Target Root" button, then select the root object of the target rig in the Maya viewport. This is the rig you want to apply the animation to. The selected object's name will appear in the text field.
 
-### Select Animative Export Root
+### Select Animotive Export Root
 
-Click on the "Select Animative Export Root" button, then select the root object of the source rig in the Maya viewport. This is the rig that already has the animation you want to transfer. The selected object's name will appear in the text field.
+Click on the "Select Animotive Export Root" button, then select the root object of the source rig in the Maya viewport. This is the rig that already has the animation you want to transfer. The selected object's name will appear in the text field.
 
 ### Apply Animation
 
