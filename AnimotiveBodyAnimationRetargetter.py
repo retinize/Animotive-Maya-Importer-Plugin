@@ -1,6 +1,7 @@
 import maya.cmds as cmds
 import re
 import math
+import webbrowser
 
 target_root = None
 user_selected_root_bone=None
@@ -17,7 +18,7 @@ def select_target_root(*args):
     if len(target_root) != 1:
         target_root = None
         cmds.textField('target_textField', edit=True, text='')
-        cmds.confirmDialog(title='Error', message='Please select one root object for "target".', button='OK')
+        cmds.confirmDialog(title='Error', message='Please select one root joint for "target".', button='OK')
     else:
         cmds.textField('target_textField', edit=True, text=target_root[0])
 
@@ -29,7 +30,7 @@ def select_root_bone(*args):
     if len(user_selected_root_bone) != 1:
         user_selected_root_bone = None
         cmds.textField('user_selected_root_bone_textField', edit=True, text='')
-        cmds.confirmDialog(title='Error', message='Please select the root joint', button='OK')
+        cmds.confirmDialog(title='Error', message="Please select the pelvis joint (Root/Hips)", button='OK')
     else:
         cmds.textField('user_selected_root_bone_textField', edit=True, text=user_selected_root_bone[0])
 
@@ -41,7 +42,7 @@ def select_animated_root(*args):
     if len(animated_root) != 1:
         animated_root = None
         cmds.textField('animated_textField', edit=True, text='')
-        cmds.confirmDialog(title='Error', message='Please select one root object for "animated".', button='OK')
+        cmds.confirmDialog(title='Error', message='Please select one root object for "Animotive Export".', button='OK')
     else:
         cmds.textField('animated_textField', edit=True, text=animated_root[0])
 
@@ -107,27 +108,39 @@ def delete_parent_constraint():
     created_parentConstraints.clear()
 
 
+def git_hub_readme(*args):
+    url = "https://github.com/retinize/Animotive-Maya-Importer-Plugin/blob/main/README.md"
+    webbrowser.open(url)
+
+
 if cmds.window('animation_transfer_window', exists=True):
     cmds.deleteUI('animation_transfer_window')
 
-window = cmds.window('animation_transfer_window', title='Animation Transfer', widthHeight=(600, 250))
-cmds.window(window,edit=True,sizeable=False)
+window = cmds.window('animation_transfer_window', title='Animotive Animation Transfer', widthHeight=(600, 250))
+cmds.window(window,edit=True,sizeable=True)
 cmds.columnLayout(adjustableColumn=True)
 
-cmds.text(label='Select the root object for "Target to apply animation":')
+cmds.text(label='Select the targets root joint:')
 target_text_field = cmds.textField('target_textField', editable=False)
 target_button = cmds.button(label='Select Target Root', command=select_target_root)
 
 
-cmds.text(label='Select the root bone of the target object:')
+cmds.text(label='Select the pelvis joint of the target again to apply animation:')
 user_selected_root_bone_text_field = cmds.textField('user_selected_root_bone_textField', editable=False)
-user_selected_root_bone_button = cmds.button(label='Select Root Joint of The Target', command=select_root_bone)
+user_selected_root_bone_button = cmds.button(label='Select targets pelvis joint (Root/Hips)', command=select_root_bone)
 
 
 cmds.text(label='Select the root object for "Animotive Export":')
 animated_text_field = cmds.textField('animated_textField', editable=False)
 animated_button = cmds.button(label='Select Animotive Export Root', command=select_animated_root)
+
+
 cmds.text(label="--------------------------------------------------------------------------------------------------------------------------------------------------------------------", enable=False)
 apply_button = cmds.button(label='Apply Animation', command=apply_animation)
 
+cmds.text(label="--------------------------------------------------------------------------------------------------------------------------------------------------------------------", enable=False)
+
+cmds.button(label='Help', command= 'git_hub_readme()')
+
 cmds.showWindow(window)
+    
