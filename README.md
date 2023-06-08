@@ -27,6 +27,10 @@ Click on the "Select Target Root" button, then select the root object of the tar
 
 Click on the "Select Animotive Export Root" button, then select the root object of the source rig in the Maya viewport. This is the rig that already has the animation you want to transfer. The selected object's name will appear in the text field.
 
+#### Select Root bone
+
+Click on the "Select Root Bone" button, then select the root joint of the target rig in the Maya viewport. This is the root bone you want to apply the translations in addition to rotations to. The selected object's name will appear in the text field.
+
 #### Apply Animation
 
 Click on the "Apply Animation" button to transfer the animation from the source rig to the target rig. This process may take a while depending on the complexity of the rigs and the length of the animation.
