@@ -88,7 +88,7 @@ if cmds.window('animation_transfer_window', exists=True):
 window = cmds.window('animation_transfer_window', title='Face Animation Transfer', widthHeight=(400, 200))
 cmds.columnLayout(adjustableColumn=True)
 
-cmds.text(label='Select the root object for "target":')
+cmds.text(label='Select target object to apply blendshape animation:')
 target_text_field = cmds.textField('target_textField', editable=False)
 target_button = cmds.button(label='Select', command=select_target_root)
 
