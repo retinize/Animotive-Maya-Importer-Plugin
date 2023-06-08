@@ -43,11 +43,11 @@ Note: If no objects or multiple objects are selected when selecting the roots, a
 - **Time Reset:** Resets the current time to 0 before starting any operation.
 
 
-# 2. Face Animation Transfer
+## 2. Face Animation Transfer
 
 This is a Maya script that aids in transferring face animation from a JSON file to a character within Maya.
 
-## Usage
+### Usage
 
 To use this script:
 
@@ -56,7 +56,7 @@ To use this script:
 3. In Maya, select the root of the target model, then press the "Select" button in the GUI.
 4. Press the "Apply Animation" button in the GUI to apply the face animation from a JSON file to your character.
 
-## Description of Functions
+### Description of Functions
 
 The script contains the following functions:
 
@@ -65,6 +65,6 @@ The script contains the following functions:
 - `set_playback_speed()`: This function sets the playback speed based on the number of frames in the facial animation.
 - `set_keyframes_from_json(*args)`: This function reads the JSON file and applies the facial animation to the target model.
 
-## Note
+### Note
 
 The JSON file should contain information about the facial animation, including the blendshapes used and their values at each frame.
