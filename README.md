@@ -1,4 +1,4 @@
-# Animation Transfer Tool for Maya
+# Animotive Animation Transfer Tool for Maya
 
 This script provides a simple tool for transferring animations between different character rigs in Autodesk Maya. The script works by comparing hierarchies and transferring animation from a source rig to a target rig.
 
@@ -10,7 +10,7 @@ This script provides a simple tool for transferring animations between different
 
 ## Usage
 
-The script opens a new window in Maya named "Animation Transfer". It contains several UI elements for easy usage.
+The script opens a new window in Maya named "Animotive Animation Transfer". It contains several UI elements for easy usage.
 
 ### Select Target Root
 
