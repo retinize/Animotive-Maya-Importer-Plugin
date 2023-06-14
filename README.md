@@ -2,7 +2,7 @@
 
 # Requirements
 
-- Autodesk Maya
+- Autodesk Maya (Tested with Maya 2020-2024)
 - Python (python 3 and above)
 
 
