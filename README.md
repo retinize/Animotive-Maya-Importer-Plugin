@@ -15,6 +15,10 @@ This script provides a simple tool for transferring animations between different
 2. Open Autodesk Maya.
 3. In the Script Editor, load the Python script file.
 
+### Pre-Requisites
+
+Target character model to which user wants to apply animation should have the same naming and the hierarchy as the character that animation was recorded with.
+
 ### Usage
 
 The script opens a new window in Maya named "Animotive Animation Transfer". It contains several UI elements for easy usage.
