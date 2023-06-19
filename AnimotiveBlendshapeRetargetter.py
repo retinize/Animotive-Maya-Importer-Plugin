@@ -3,6 +3,8 @@ import json
 import ntpath
 import maya.mel
 
+
+target_root = None
 def select_target_root(*args):
     global target_root
     target_root = cmds.ls(selection=True, type='transform')
@@ -37,13 +39,20 @@ def set_playback_speed():
 
 
 def set_keyframes_from_json(*args):
-    print(target_root)
     if target_root is None:
         print("Nothing was selected !")
+        return
     character_geos = facialAnimationClipData['characterGeos']
     facialAnimation_frames = facialAnimationClipData['facialAnimationFrames']
     names = get_blendshape_node_from_geo()
 
+    content = cmds.textField(blendshape_text_field, query=True, text=True)
+    if content is None:
+        print("You need to type a blendshape name..")
+        return
+        
+    
+    print(content)
     for frame in range(0, len(facialAnimation_frames)):
         blendshapes_per_frame = facialAnimation_frames[frame]
 
@@ -57,7 +66,7 @@ def set_keyframes_from_json(*args):
             # blendshapeIndex = blendshapeUsed['i']
 
             for name in names:
-                if geo_name in name:
+                if content in name:
                     targetBlendShape = name + "." + bs_name
                     cmds.setKeyframe(targetBlendShape, time=frame, value=bs_value)
 
@@ -91,6 +100,9 @@ cmds.columnLayout(adjustableColumn=True)
 cmds.text(label='Select target object to apply blendshape animation:')
 target_text_field = cmds.textField('target_textField', editable=False)
 target_button = cmds.button(label='Select', command=select_target_root)
+
+cmds.text(label='Write the shape name that you want to apply animation to :')
+blendshape_text_field = cmds.textField(placeholderText='Enter your text here')
 
 apply_button = cmds.button(label='Apply Animation', command=set_keyframes_from_json)
 
