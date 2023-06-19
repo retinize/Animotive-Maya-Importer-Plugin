@@ -2,7 +2,7 @@
 
 # Requirements
 
-- Autodesk Maya
+- Autodesk Maya (Tested with Maya 2020-2024)
 - Python (python 3 and above)
 
 
@@ -14,6 +14,10 @@ This script provides a simple tool for transferring animations between different
 1. Clone the repository or download the script file.
 2. Open Autodesk Maya.
 3. In the Script Editor, load the Python script file.
+
+### Pre-Requisites
+
+Target character model to which user wants to apply animation should have the same naming and the hierarchy as the character that animation was recorded with.
 
 ### Usage
 
