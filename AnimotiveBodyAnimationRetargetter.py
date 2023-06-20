@@ -105,7 +105,7 @@ def create_parent_constraint(animated_children, target_children):
 def delete_parent_constraint():
     for constraint in created_parentConstraints:
         cmds.delete(constraint)
-    created_parentConstraints.clear()
+    del created_parentConstraints[:]
 
 
 def git_hub_readme(*args):
@@ -116,20 +116,23 @@ def git_hub_readme(*args):
 if cmds.window('animation_transfer_window', exists=True):
     cmds.deleteUI('animation_transfer_window')
 
-window = cmds.window('animation_transfer_window', title='Animotive Animation Transfer', widthHeight=(600, 250))
+window = cmds.window('animation_transfer_window', title='Animotive Animation Transfer', resizeToFitChildren = True)
 cmds.window(window,edit=True,sizeable=True)
 cmds.columnLayout(adjustableColumn=True)
 
-cmds.text(label='Select the targets root joint:')
+cmds.text(label='')
+cmds.text(label='Select the targets bind joint group:')
 target_text_field = cmds.textField('target_textField', editable=False)
-target_button = cmds.button(label='Select Target Root', command=select_target_root)
+target_button = cmds.button(label='Select target joint group', command=select_target_root)
 
 
-cmds.text(label='Select the pelvis joint of the target again to apply animation:')
+cmds.text(label='')
+cmds.text(label='Select the targets root joint:')
 user_selected_root_bone_text_field = cmds.textField('user_selected_root_bone_textField', editable=False)
-user_selected_root_bone_button = cmds.button(label='Select targets pelvis joint (Root/Hips)', command=select_root_bone)
+user_selected_root_bone_button = cmds.button(label='Select Target Root Joint', command=select_root_bone)
 
 
+cmds.text(label='')
 cmds.text(label='Select the root object for "Animotive Export":')
 animated_text_field = cmds.textField('animated_textField', editable=False)
 animated_button = cmds.button(label='Select Animotive Export Root', command=select_animated_root)
@@ -143,4 +146,3 @@ cmds.text(label="---------------------------------------------------------------
 cmds.button(label='Help', command= 'git_hub_readme()')
 
 cmds.showWindow(window)
-    
