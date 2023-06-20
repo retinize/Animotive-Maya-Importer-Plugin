@@ -124,6 +124,6 @@ apply_button = cmds.button(label='Apply Animation', command=set_keyframes_from_j
 
 cmds.text(label="--------------------------------------------------------------------------------------------------------------------------------------------------------------------", enable=False)
 
-cmds.button(label='Help', command= 'git_hub_readme()')
+cmds.button(label='Help', command=git_hub_readme)
 
 cmds.showWindow(window)
