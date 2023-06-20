@@ -84,12 +84,12 @@ def set_keyframes_from_json(*args):
         blendshapes_per_frame = facial_animation_frames[frame]
 
         for blendshapeUsed in blendshapes_per_frame["blendShapesUsed"]:
-            geo_index = blendshapeUsed["geo"]
+            geo_index = blendshapeUsed["g"]
             #geo_name = character_geos[geo_index]["skinnedMeshRendererName"]
             blendshape_names = character_geos[geo_index]["blendShapeNames"]
-            bs_index = blendshapeUsed["bsIndex"]
+            bs_index = blendshapeUsed["i"]
             bs_name = blendshape_names[bs_index]
-            bs_value = blendshapeUsed["value"] / 100
+            bs_value = blendshapeUsed["v"] / 100
             # blendshapeIndex = blendshapeUsed['i']
 
             for name in names:
