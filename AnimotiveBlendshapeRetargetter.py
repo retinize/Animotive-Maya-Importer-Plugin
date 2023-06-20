@@ -5,6 +5,8 @@ import maya.mel
 
 
 target_root = None
+pathOfFileToLoad=None
+
 def select_target_root(*args):
     global target_root
     target_root = cmds.ls(selection=True, type='transform')
@@ -16,6 +18,18 @@ def select_target_root(*args):
     else:
         cmds.textField('target_textField', edit=True, text=target_root[0])
 
+def open_file_browser(*args):
+    global pathOfFileToLoad
+    filters = "JSON files (*.json)"
+
+    pathOfFileToLoad =cmds.fileDialog2(fileFilter=filters, dialogStyle=2, fileMode=1)
+
+    if len(pathOfFileToLoad) != 1:
+        pathOfFileToLoad = None
+        cmds.textField('json_file_textField', edit=True, text='')
+        cmds.confirmDialog(title='Error', message='Please select one root object for "target".', button='OK')
+    else:
+        cmds.textField('json_file_textField', edit=True, text=pathOfFileToLoad[0])
 
 def get_blendshape_node_from_geo():
     nodes = []
@@ -29,40 +43,53 @@ def get_blendshape_node_from_geo():
     return (nodes)
 
 
-def set_playback_speed():
-    frameCount = len(facialAnimationFrames)
+def set_playback_speed(facial_animation_clip_data):
+
+    facial_animation_frames = facial_animation_clip_data['facialAnimationFrames']
+    frame_count = len(facial_animation_frames)
     cmds.currentUnit(time='ntscf')
     cmds.playbackOptions(edit=True, animationStartTime=0)
-    cmds.playbackOptions(edit=True, animationEndTime=frameCount)
+    cmds.playbackOptions(edit=True, animationEndTime=frame_count)
     cmds.playbackOptions(edit=True, minTime=0)
-    cmds.playbackOptions(edit=True, maxTime=frameCount)
+    cmds.playbackOptions(edit=True, maxTime=frame_count)
 
 
 def set_keyframes_from_json(*args):
     if target_root is None:
-        print("Nothing was selected !")
+        print("Target object was not selected !")
         return
-    character_geos = facialAnimationClipData['characterGeos']
-    facialAnimation_frames = facialAnimationClipData['facialAnimationFrames']
-    names = get_blendshape_node_from_geo()
 
     content = cmds.textField(blendshape_text_field, query=True, text=True)
     if content is None:
         print("You need to type a blendshape name..")
         return
-        
-    
-    print(content)
-    for frame in range(0, len(facialAnimation_frames)):
-        blendshapes_per_frame = facialAnimation_frames[frame]
+
+    if pathOfFileToLoad is None:
+        print("No json file was selected..")
+        return
+
+
+    file = open(pathOfFileToLoad[0], 'r')
+
+    facial_animation_clip_data = json.load(file)
+
+    set_playback_speed(facial_animation_clip_data)
+
+    character_geos = facial_animation_clip_data['characterGeos']
+    facial_animation_frames = facial_animation_clip_data['facialAnimationFrames']
+    names = get_blendshape_node_from_geo()
+
+
+    for frame in range(0, len(facial_animation_frames)):
+        blendshapes_per_frame = facial_animation_frames[frame]
 
         for blendshapeUsed in blendshapes_per_frame["blendShapesUsed"]:
-            geo_index = blendshapeUsed["g"]
-            geo_name = character_geos[geo_index]["skinnedMeshRendererName"]
+            geo_index = blendshapeUsed["geo"]
+            #geo_name = character_geos[geo_index]["skinnedMeshRendererName"]
             blendshape_names = character_geos[geo_index]["blendShapeNames"]
-            bs_index = blendshapeUsed["i"]
+            bs_index = blendshapeUsed["bsIndex"]
             bs_name = blendshape_names[bs_index]
-            bs_value = blendshapeUsed["v"] / 100
+            bs_value = blendshapeUsed["value"] / 100
             # blendshapeIndex = blendshapeUsed['i']
 
             for name in names:
@@ -71,31 +98,16 @@ def set_keyframes_from_json(*args):
                     cmds.setKeyframe(targetBlendShape, time=frame, value=bs_value)
 
 
-filters = "JSON files (*.json)"
-
-pathOfFileToLoad =cmds.fileDialog2(fileFilter=filters, dialogStyle=2, fileMode=1)
-
-
-file = open(pathOfFileToLoad[0], 'r')
-facialAnimationClipData = json.load(file)
-characterGeos = facialAnimationClipData['characterGeos']
-thislist = []
-for characterGeosIndex in range(0, len(characterGeos)):
-    geoName = characterGeos[characterGeosIndex]['skinnedMeshRendererName']
-    thislist.append(geoName)
-
-deltaFrameTime = facialAnimationClipData['fixedDeltaTimeBetweenKeyFrames']
-facialAnimationFrames = facialAnimationClipData['facialAnimationFrames']
-clipDuration = (len(facialAnimationFrames))
-
-set_playback_speed()
-
-
 if cmds.window('animation_transfer_window', exists=True):
     cmds.deleteUI('animation_transfer_window')
 
 window = cmds.window('animation_transfer_window', title='Face Animation Transfer', widthHeight=(400, 200))
 cmds.columnLayout(adjustableColumn=True)
+
+
+cmds.text(label='Select JSON file that contains the blendshape animation:')
+json_file_text_field = cmds.textField('json_file_textField', editable=False)
+open_file_browser = cmds.button(label='Select', command=open_file_browser)
 
 cmds.text(label='Select target object to apply blendshape animation:')
 target_text_field = cmds.textField('target_textField', editable=False)
