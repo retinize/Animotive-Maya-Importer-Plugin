@@ -7,6 +7,10 @@ import maya.mel
 target_root = None
 pathOfFileToLoad=None
 
+def git_hub_readme(*args):
+    url = "https://github.com/retinize/Animotive-Maya-Importer-Plugin/blob/main/README.md"
+    webbrowser.open(url)
+
 def select_target_root(*args):
     global target_root
     target_root = cmds.ls(selection=True, type='transform')
@@ -101,7 +105,7 @@ def set_keyframes_from_json(*args):
 if cmds.window('animation_transfer_window', exists=True):
     cmds.deleteUI('animation_transfer_window')
 
-window = cmds.window('animation_transfer_window', title='Face Animation Transfer', widthHeight=(400, 200))
+window = cmds.window('animation_transfer_window', title='Face Animation Transfer', resizeToFitChildren = True)
 cmds.columnLayout(adjustableColumn=True)
 
 
@@ -113,9 +117,13 @@ cmds.text(label='Select target object to apply blendshape animation:')
 target_text_field = cmds.textField('target_textField', editable=False)
 target_button = cmds.button(label='Select', command=select_target_root)
 
-cmds.text(label='Write the shape name that you want to apply animation to :')
+cmds.text(label='Write the blendshape node name that you want to apply animation to:')
 blendshape_text_field = cmds.textField(placeholderText='Enter your text here')
 
 apply_button = cmds.button(label='Apply Animation', command=set_keyframes_from_json)
+
+cmds.text(label="--------------------------------------------------------------------------------------------------------------------------------------------------------------------", enable=False)
+
+cmds.button(label='Help', command= 'git_hub_readme()')
 
 cmds.showWindow(window)
