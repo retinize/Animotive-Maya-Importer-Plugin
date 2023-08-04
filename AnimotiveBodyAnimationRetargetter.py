@@ -65,7 +65,7 @@ def apply_animation(*args):
     target_children = cmds.listRelatives(target_root[0], allDescendents=True, type='joint', path=True)
     target_children.append(target_root[0])
 
-    reset_rotations(animated_children)
+    #reset_rotations(animated_children)
     create_parent_constraint(animated_children, target_children)
 
     clip_duration = cmds.keyframe(animated_children[-1], q=True)
@@ -79,13 +79,13 @@ def apply_animation(*args):
     delete_parent_constraint()
 
 
-def reset_rotations(object_list):
-    for obj in object_list:
-        cmds.setAttr(obj + '.rotateX', 0)
-        cmds.setAttr(obj + '.rotateY', 0)
-        cmds.setAttr(obj + '.rotateZ', 0)
-        cmds.setAttr(obj + '.rotate', 0, 0, 0)
-        cmds.setKeyframe(obj, attribute='rotate')
+#def reset_rotations(object_list):
+    #for obj in object_list:
+        #cmds.setAttr(obj + '.rotateX', 0)
+        #cmds.setAttr(obj + '.rotateY', 0)
+        #cmds.setAttr(obj + '.rotateZ', 0)
+        #cmds.setAttr(obj + '.rotate', 0, 0, 0)
+        #cmds.setKeyframe(obj, attribute='rotate')
 
 
 def create_parent_constraint(animated_children, target_children):
