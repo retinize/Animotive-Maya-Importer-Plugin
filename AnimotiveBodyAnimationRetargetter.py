@@ -67,8 +67,16 @@ def apply_animation(*args):
 
     #reset_rotations(animated_children)
     create_parent_constraint(animated_children, target_children)
+    clip_duration=0
+    
+    for child in animated_children:
+        key_times = cmds.keyframe(child, q=True)
+        if key_times is not None:
+            clip_duration = key_times
+            break
 
-    clip_duration = cmds.keyframe(animated_children[-1], q=True)
+        
+    print(animated_children[-1])
     cmds.playbackOptions(edit=True, animationStartTime=0)
     cmds.playbackOptions(edit=True, animationEndTime=clip_duration[-1])
     min_time = cmds.playbackOptions(edit=True, minTime=0)
