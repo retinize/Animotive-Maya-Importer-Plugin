@@ -7,7 +7,7 @@ target_root = None
 user_selected_root_bone=None
 animated_root= None
 
-created_parentConstraints = []
+created_parent_constraints = []
 tPoseRotations = {}
 
 
@@ -115,13 +115,13 @@ def create_parent_constraint(animated_children, target_children):
                     constraint = cmds.parentConstraint(animated_child, target_child, mo=True)
                 else:
                     constraint = constraint = cmds.parentConstraint(animated_child, target_child, mo=True, st=['x', 'y', 'z'])
-                created_parentConstraints.append(constraint)
+                created_parent_constraints.append(constraint)
 
 
 def delete_parent_constraint():
-    for constraint in created_parentConstraints:
+    for constraint in created_parent_constraints:
         cmds.delete(constraint)
-    del created_parentConstraints[:]
+    del created_parent_constraints[:]
 
 
 def git_hub_readme(*args):
