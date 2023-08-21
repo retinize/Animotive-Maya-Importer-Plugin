@@ -71,16 +71,17 @@ def apply_animation(*args):
     
     for child in animated_children:
         key_times = cmds.keyframe(child, q=True)
-        if key_times is not None:
+        if key_times is not None and is_list_zero(key_times)==False:
+            print("HERE "+str(key_times) )
             clip_duration = key_times
             break
 
         
-    print(animated_children[-1])
     cmds.playbackOptions(edit=True, animationStartTime=0)
     cmds.playbackOptions(edit=True, animationEndTime=clip_duration[-1])
     min_time = cmds.playbackOptions(edit=True, minTime=0)
     max_time = cmds.playbackOptions(edit=True, maxTime=clip_duration[-1])
+    
 
     cmds.bakeResults(target_children, t=(min_time, max_time), simulation=True)
 
@@ -94,7 +95,15 @@ def apply_animation(*args):
         #cmds.setAttr(obj + '.rotateZ', 0)
         #cmds.setAttr(obj + '.rotate', 0, 0, 0)
         #cmds.setKeyframe(obj, attribute='rotate')
-
+        
+def is_list_zero(target_list):
+    for item in target_list:
+        if item != 0.0:
+            return False
+    
+    return True;        
+            
+            
 
 def create_parent_constraint(animated_children, target_children):
     for animated_child in animated_children:
