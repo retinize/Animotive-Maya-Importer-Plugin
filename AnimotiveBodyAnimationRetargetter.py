@@ -72,7 +72,6 @@ def apply_animation(*args):
     for child in animated_children:
         key_times = cmds.keyframe(child, q=True)
         if key_times is not None and is_list_zero(key_times)==False:
-            print("HERE "+str(key_times) )
             clip_duration = key_times
             break
 
