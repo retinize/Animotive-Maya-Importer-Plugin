@@ -6,7 +6,7 @@ import webbrowser
 target_root = None
 user_selected_root_bone=None
 animated_root= None
-
+maintain_offset=False;
 created_parent_constraints = []
 tPoseRotations = {}
 
@@ -110,9 +110,9 @@ def create_parent_constraint(animated_children, target_children):
                 is_root = target_child == user_selected_root_bone[0]
                 constraint = None
                 if is_root:
-                    constraint = cmds.parentConstraint(animated_child, target_child)
+                    constraint = cmds.parentConstraint(animated_child, target_child,mo=maintain_offset)
                 else:
-                    constraint = cmds.parentConstraint(animated_child, target_child, st=['x', 'y', 'z'])
+                    constraint = cmds.parentConstraint(animated_child, target_child,mo=maintain_offset, st=['x', 'y', 'z'])
                 created_parent_constraints.append(constraint)
 
 
@@ -127,6 +127,8 @@ def git_hub_readme(*args):
     url = "https://github.com/retinize/Animotive-Maya-Importer-Plugin/blob/main/README.md"
     webbrowser.open(url)
 
+def on_maintain_offset_checkbox_clicked(box_value):
+    maintain_offset = box_value==True
 
 if cmds.window('animation_transfer_window', exists=True):
     cmds.deleteUI('animation_transfer_window')
@@ -151,6 +153,11 @@ cmds.text(label='')
 cmds.text(label='Select the root object for "Animotive Export":')
 animated_text_field = cmds.textField('animated_textField', editable=False)
 animated_button = cmds.button(label='Select Animotive Export Root', command=select_animated_root)
+
+
+# In case we need a checkbox for maintain offset value just uncomment this line below and it should be fine.
+#cmds.checkBox(label="Maintain Offset",al="center" , cc=on_maintain_offset_checkbox_clicked, ann="If this flag is specified the position and rotation of the constrained object will be maintained.")
+
 
 
 cmds.text(label="--------------------------------------------------------------------------------------------------------------------------------------------------------------------", enable=False)
