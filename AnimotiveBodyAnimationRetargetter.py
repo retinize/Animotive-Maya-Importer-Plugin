@@ -120,7 +120,8 @@ def create_parent_constraint(animated_children, target_children):
 
 def delete_parent_constraint():
     for constraint in created_parent_constraints:
-        cmds.delete(constraint)
+        if cmds.objExists(constraint[0]):
+            cmds.delete(constraint)
     del created_parent_constraints[:]
 
 
