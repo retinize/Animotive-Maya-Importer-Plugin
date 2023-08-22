@@ -1,3 +1,6 @@
+# ---- VERSION 2 ----
+
+
 import maya.cmds as cmds
 import re
 import math
