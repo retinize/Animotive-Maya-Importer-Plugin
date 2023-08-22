@@ -101,8 +101,6 @@ def is_list_zero(target_list):
             return False
     
     return True;        
-            
-            
 
 def create_parent_constraint(animated_children, target_children):
     for animated_child in animated_children:
@@ -121,7 +119,7 @@ def create_parent_constraint(animated_children, target_children):
 def delete_parent_constraint():
     for constraint in created_parent_constraints:
         if cmds.objExists(constraint[0]):
-            cmds.delete(constraint)
+            cmds.delete(constraint[0])
     del created_parent_constraints[:]
 
 
