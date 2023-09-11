@@ -36,9 +36,11 @@ if len(all_children)==0:
 try:
     cmds.workspaceControl('Control')
     cmds.timeEditorPanel()
-except:
-    print("it already exists")
-     
+except RuntimeError as e:
+    if "Cannot find panel" not in str(e):
+        print("Error:", e)
+    else:
+        print("Time Editor already exists")
 clipIndex = 0
 
 last_composition_name = 'MyComposition'+get_last_composition_index()
