@@ -5,14 +5,14 @@ import re
 
 def get_last_composition_index():
     elements = cmds.ls()
-    elements.sort()
-    filtered_elements = [elem for elem in elements if re.search("MyComposition",elem,re.IGNORECASE)]
-    if len(filtered_elements)==0:
-        return "0"
-    if len(filtered_elements)==1:
-        return "1"        
-    last_index= int(filtered_elements[-1][-1])  
-    return str(last_index+1)
+    filtered_elements = [elem for elem in elements if re.search("MyComposition\d+", elem)]
+    
+    indices = [int(re.search("\d+", elem).group()) for elem in filtered_elements]
+    if not indices:
+        return "1"
+    
+    return str(max(indices) + 1)
+
     
 
 
