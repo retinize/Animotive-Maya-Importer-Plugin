@@ -2,7 +2,6 @@ import maya.cmds as cmds
 import sys
 import re
 
-
 def get_last_composition_index():
     elements = cmds.ls()
     filtered_elements = [elem for elem in elements if re.search("MyComposition\d+", elem)]
@@ -19,13 +18,15 @@ def has_keyframes(node_name):
             return True
     return False
 
+
+
 selection = cmds.ls(selection=True)
 
 if selection is None or len(selection)==0:
     print("Nothing was selected")
     sys.exit()
 
-all_children = cmds.listRelatives(selection, allDescendents=True, type='transform', path=True)
+all_children = cmds.listRelatives(selection, allDescendents=True, type='joint', path=True)
 
 if len(all_children)==0:
     sys.exit()
@@ -34,7 +35,7 @@ try:
     cmds.workspaceControl('Control')
     cmds.timeEditorPanel()
 except RuntimeError as e:
-    if "Cannot find panel" not in str(e):
+    if "Object's name" not in str(e):
         print("Error:", e)
     else:
         print("Time Editor already exists")
@@ -43,11 +44,12 @@ clipIndex = 0
 last_composition_name = 'MyComposition'+get_last_composition_index()
 cmds.timeEditorComposition(last_composition_name)
 
-for child in all_children:
-    if has_keyframes(child):
+temp = ";".join(all_children)
 
-        cmds.timeEditorClip(child, track=last_composition_name+":1",clipId=clipIndex)
-        clipIndex+=1
+cmds.timeEditorAnimSource("anim_Clip1",ao= temp, addRelatedKG=True, rsa=1, includeRoot=True, recursively=True)
+
+
+
 
 
 
