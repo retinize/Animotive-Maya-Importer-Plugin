@@ -46,7 +46,7 @@ cmds.timeEditorComposition(last_composition_name)
 
 temp = ";".join(all_children)
 
-cmds.timeEditorAnimSource("anim_Clip1",ao= temp, addRelatedKG=True, rsa=1, includeRoot=True, recursively=True)
+cmds.timeEditorAnimSource("anim_Clip1",ao= temp, addRelatedKG=True, removeSceneAnimation=True, includeRoot=True, recursively=True)
 
 
 
