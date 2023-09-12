@@ -23,12 +23,13 @@ def has_keyframes(node_name):
 selection = cmds.ls(selection=True)
 
 if selection is None or len(selection)==0:
-    print("Nothing was selected")
+    print("Please choose the source of animation first !")
     sys.exit()
 
 all_children = cmds.listRelatives(selection, allDescendents=True, type='joint', path=True)
 
 if len(all_children)==0:
+    print("No object was found")
     sys.exit()
 
 try:
@@ -39,7 +40,6 @@ except RuntimeError as e:
         print("Error:", e)
     else:
         print("Time Editor already exists")
-clipIndex = 0
 
 last_composition_name = 'MyComposition'+get_last_composition_index()
 cmds.timeEditorComposition(last_composition_name)
