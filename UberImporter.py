@@ -35,7 +35,7 @@ def apply_animation(animated_root,target_root):
     
     for child in animated_children:
         key_times = cmds.keyframe(child, q=True)
-        print(is_list_zero(key_times)
+        print(key_times)
         if key_times is not None and is_list_zero(key_times)==False:
             clip_duration = key_times
             break
@@ -91,6 +91,11 @@ def delete_parent_constraint():
 
 # ---- End of Body Retargeting ----
 
+
+def load_fbx_plugin():
+    plugin_name = "fbxmaya"
+    if not cmds.pluginInfo(plugin_name, q=True, loaded=True):
+        cmds.loadPlugin(plugin_name)
 
 def choose_directory_and_retrieve_fbxes(*args):
     global fbx_files
@@ -163,10 +168,9 @@ def create_composition():
     temp = ";".join(all_children)
 
     cmds.timeEditorAnimSource("anim_Clip1",ao= temp, addRelatedKG=True, removeSceneAnimation=True, includeRoot=True, recursively=True)
-    
-    
 
 def import_fbxes(*args):
+
     if directory is None or not directory :
         cmds.confirmDialog(title='Error', message='Please browse a directory to import FBX files from', button='OK')
         return
@@ -181,20 +185,23 @@ def import_fbxes(*args):
     
     if not cmds.pluginInfo("fbxmaya", q=True, loaded=True):
         cmds.loadPlugin("fbxmaya")
-    
+     
+        
+    load_fbx_plugin()
     for fbx_path in fbx_files:
         full_path = os.path.join(directory,fbx_path)
         file_name_without_extension = os.path.splitext(fbx_path)[0]
-        imported_nodes = cmds.file(full_path, i=True, type="FBX", preserveReferences=True,ns=file_name_without_extension,returnNewNodes=True)
-        root_node_of_imported= imported_nodes[0]
-        #apply_animation(root_node_of_imported,user_selection)
-        sys.exit()
+        
+        before_import_nodes = set(cmds.ls(dag=True, long=True))
+        cmds.FBXImport("-f",os.path.join(directory,fbx_files[0]),'-caller "FBXMayaTranslator" -importFormat "fbx"',"-ns",file_name_without_extension)
+        after_import_nodes = set(cmds.ls(dag=True, long=True))
+        
+        imported_nodes = after_import_nodes - before_import_nodes
+        root_node_of_imported = imported_nodes[0]
+        apply_animation(root_node_of_imported,user_selection)
+        #sys.exit()
     
 
-    
-    # check if a directory is selected
-    # check if the character root is selected
-    print("Import is called")
     
     
 window = cmds.window('animation_transfer_window', title='Animotive Animation Transfer', resizeToFitChildren = True)
