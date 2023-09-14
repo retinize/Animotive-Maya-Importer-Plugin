@@ -5,6 +5,92 @@ import os
 fbx_files = None
 directory = None
 user_selection = None
+created_parent_constraints = []
+
+# ---- Body Retargeting ----
+
+
+
+def apply_animation(animated_root,target_root):
+    if not target_root:
+        cmds.confirmDialog(title='Error', message='Please select a root of the target where you want the animation to be applied.', button='OK')
+        return
+    if not animated_root:
+        cmds.confirmDialog(title='Error', message='Please select a root object of the animotive export', button='OK')
+        return
+    if not user_selection:
+        cmds.confirmDialog(title='Error', message='Please select a root bone joint of the target', button='OK')
+        return
+
+    cmds.currentTime(0, edit=True)
+
+    animated_children = cmds.listRelatives(animated_root, allDescendents=True, type='transform', path=True)
+    animated_children.append(animated_root)
+    target_children = cmds.listRelatives(target_root, allDescendents=True, type='joint', path=True)
+    target_children.append(target_root)
+
+    #reset_rotations(animated_children)
+    create_parent_constraint(animated_children, target_children)
+    clip_duration=0
+    
+    for child in animated_children:
+        key_times = cmds.keyframe(child, q=True)
+        print(is_list_zero(key_times)
+        if key_times is not None and is_list_zero(key_times)==False:
+            clip_duration = key_times
+            break
+
+    print("Clip Duration")
+    print(clip_duration)
+    
+    print("Animated Children")
+    print(animated_children)
+    
+    cmds.playbackOptions(edit=True, animationStartTime=0)
+    cmds.playbackOptions(edit=True, animationEndTime=clip_duration[-1])
+    min_time = cmds.playbackOptions(edit=True, minTime=0)
+    max_time = cmds.playbackOptions(edit=True, maxTime=clip_duration[-1])
+    
+
+    cmds.bakeResults(target_children, t=(min_time, max_time), simulation=True)
+
+    delete_parent_constraint()
+
+
+#def reset_rotations(object_list):
+    #for obj in object_list:
+        #cmds.setAttr(obj + '.rotateX', 0)
+        #cmds.setAttr(obj + '.rotateY', 0)
+        #cmds.setAttr(obj + '.rotateZ', 0)
+        #cmds.setAttr(obj + '.rotate', 0, 0, 0)
+        #cmds.setKeyframe(obj, attribute='rotate')
+        
+def is_list_zero(target_list):
+    return(all(x == 0.0 for x in target_list))      
+
+def create_parent_constraint(animated_children, target_children):
+    for animated_child in animated_children:
+        animated_child_name = animated_child.split(':')[-1]
+        for target_child in target_children:
+            if animated_child_name in target_child:
+                is_root = target_child == user_selection[0]
+                constraint = None
+                if is_root:
+                    constraint = cmds.parentConstraint(animated_child, target_child,mo=False)
+                else:
+                    constraint = cmds.parentConstraint(animated_child, target_child,mo=False, st=['x', 'y', 'z'])
+                created_parent_constraints.append(constraint)
+
+
+def delete_parent_constraint():
+    for constraint in created_parent_constraints:
+        if cmds.objExists(constraint[0]):
+            cmds.delete(constraint[0])
+    del created_parent_constraints[:]
+
+
+# ---- End of Body Retargeting ----
+
 
 def choose_directory_and_retrieve_fbxes(*args):
     global fbx_files
@@ -99,8 +185,10 @@ def import_fbxes(*args):
     for fbx_path in fbx_files:
         full_path = os.path.join(directory,fbx_path)
         file_name_without_extension = os.path.splitext(fbx_path)[0]
-        cmds.file(full_path, i=True, type="FBX", preserveReferences=True,ns=file_name_without_extension)
-            
+        imported_nodes = cmds.file(full_path, i=True, type="FBX", preserveReferences=True,ns=file_name_without_extension,returnNewNodes=True)
+        root_node_of_imported= imported_nodes[0]
+        #apply_animation(root_node_of_imported,user_selection)
+        sys.exit()
     
 
     
