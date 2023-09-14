@@ -86,11 +86,13 @@ def import_fbxes(*args):
     if not cmds.pluginInfo("fbxmaya", q=True, loaded=True):
         cmds.loadPlugin("fbxmaya")
     
+    for fbx_path in fbx_files:
+        full_path = os.path.join(directory,fbx_path)
+        file_name_without_extension = os.path.splitext(fbx_path)[0]
+        cmds.file(full_path, i=True, type="FBX", preserveReferences=True,ns=file_name_without_extension)
+            
     
-    fbx_path = os.path.join(directory,fbx_files[0])
-    cmds.file(fbx_path, i=True, type="FBX", preserveReferences=True)
 
-    #cmds.FBXImport(f=fbx_path, caller="FBXMayaTranslator", importFormat="fbx")
     
     # check if a directory is selected
     # check if the character root is selected
