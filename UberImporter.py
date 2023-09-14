@@ -2,7 +2,9 @@ import maya.cmds as cmds
 import sys
 import re
 import os
-
+fbx_files = None
+directory = None
+user_selection = None
 
 def choose_directory_and_retrieve_fbxes(*args):
     global fbx_files
@@ -16,8 +18,8 @@ def choose_directory_and_retrieve_fbxes(*args):
     cmds.textField('user_selected_directory_textField', edit=True,text=directory)
     fbx_files = [f for f in os.listdir(directory) if f.lower().endswith('.fbx')]
 
-def get_selected_object_and_set_textField():
-    global user_selected_root_bone
+def get_selected_object_and_set_textField(*args):
+    global user_selection
     user_selection = cmds.ls(selection=True, type='transform')
 
     if len(user_selection) != 1:
@@ -79,8 +81,16 @@ def create_composition():
     
 
 def import_fbxes(*args):
+    if directory is None or not directory :
+        cmds.confirmDialog(title='Error', message='Please browse a directory to import FBX files from', button='OK')
+        return
+    
     if fbx_files is None or len(fbx_files)==0:
-        print("No fbx file found")
+        cmds.confirmDialog(title='Error', message='No FBX file found in the given directory', button='OK')
+        return
+    
+    if user_selection is None:
+        cmds.confirmDialog(title='Error', message='Please select the root of the target character', button='OK')
         return
     
     if not cmds.pluginInfo("fbxmaya", q=True, loaded=True):
