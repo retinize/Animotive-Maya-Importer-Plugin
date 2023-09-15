@@ -25,7 +25,6 @@ def select_target_root(*args):
     else:
         cmds.textField('target_textField', edit=True, text=target_root[0])
 
-
 def select_root_bone(*args):
     global user_selected_root_bone
     user_selected_root_bone = cmds.ls(selection=True, type='transform')

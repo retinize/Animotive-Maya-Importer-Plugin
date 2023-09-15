@@ -4,7 +4,8 @@ import re
 import os
 fbx_files = None
 directory = None
-user_selection = None
+root_group_selection = None
+root_bone_selection = None
 created_parent_constraints = []
 
 # ---- Body Retargeting ----
@@ -22,7 +23,7 @@ def apply_animation(animated_root,target_root):
     if not animated_root:
         cmds.confirmDialog(title='Error', message='Please select a root object of the animotive export', button='OK')
         return
-    if not user_selection:
+    if not root_group_selection:
         cmds.confirmDialog(title='Error', message='Please select a root bone joint of the target', button='OK')
         return
     delete_parent_constraints_recursive(target_root)
@@ -51,7 +52,7 @@ def apply_animation(animated_root,target_root):
 
     cmds.bakeResults(target_children, t=(min_time, max_time), simulation=True)
 
-    #delete_parent_constraint()
+    delete_parent_constraint()
 
 
 #def reset_rotations(object_list):
@@ -70,7 +71,12 @@ def create_parent_constraint(animated_children, target_children):
         animated_child_name = animated_child.split(':')[-1]
         for target_child in target_children:
             if animated_child_name in target_child:
-                is_root = target_child == user_selection[0]
+                is_root = target_child == root_bone_selection[0]
+                
+                if is_root:
+                    print(target_child)
+                    print(root_bone_selection[0])
+                    
                 constraint = None
                 if is_root:
                     constraint = cmds.parentConstraint(animated_child, target_child,mo=False)
@@ -106,17 +112,30 @@ def choose_directory_and_retrieve_fbxes(*args):
     cmds.textField('user_selected_directory_textField', edit=True,text=directory)
     fbx_files = [f for f in os.listdir(directory) if f.lower().endswith('.fbx')]
 
-def get_selected_object_and_set_textField(*args):
-    global user_selection
-    user_selection = cmds.ls(selection=True, type='transform')
+def get_selected_root_group_and_set_text_field(*args):
+    global root_group_selection
+    root_group_selection = cmds.ls(selection=True, type='transform')
 
-    if len(user_selection) != 1:
-        user_selection = None
-        cmds.textField('user_selected_root_bone_textField', edit=True, text='')
+    if len(root_group_selection) != 1:
+        root_group_selection = None
+        cmds.textField('user_selected_root_group_textField', edit=True, text='')
         cmds.confirmDialog(title='Error', message="Please select the parent object of the character rig group", button='OK')
     else:
-        cmds.textField('user_selected_root_bone_textField', edit=True, text=user_selection[0])
-        return user_selection
+        cmds.textField('user_selected_root_group_textField', edit=True, text=root_group_selection[0])
+        return root_group_selection
+
+def get_selected_root_joint_and_set_text_field(*args):
+    global root_bone_selection
+    root_bone_selection = cmds.ls(selection=True, type='transform')
+
+    if len(root_bone_selection) != 1:
+        root_bone_selection = None
+        cmds.textField('user_selected_root_joint_textField', edit=True, text='')
+        cmds.confirmDialog(title='Error', message="Please select the character root Joint of the target character", button='OK')
+    else:
+        cmds.textField('user_selected_root_joint_textField', edit=True, text=root_bone_selection[0])
+        return root_bone_selection
+            
 
 def get_last_composition_index():
     elements = cmds.ls()
@@ -135,18 +154,14 @@ def has_keyframes(node_name):
     return False
 
 
-def get_current_selection():
-    selection = cmds.ls(selection=True)
-
-    if selection is None or len(selection)==0:
-        cmds.confirmDialog(title='Error', message="Please choose the source of animation first ", button='OK')
-        return
+def create_composition(clip_name,target_root):
     
-    all_children = cmds.listRelatives(selection, allDescendents=True, type='joint', path=True)
+    
+    all_children = cmds.listRelatives(target_root, allDescendents=True, type='joint', path=True)
     
     if len(all_children)==0:
         print("No object was found")
-        sys.exit()
+        return
     
     try:
         cmds.workspaceControl('Control')
@@ -157,8 +172,6 @@ def get_current_selection():
         else:
             print("Time Editor already exists")
     
-
-def create_composition():
     last_composition_name = 'MyComposition'+get_last_composition_index()
     cmds.timeEditorComposition(last_composition_name)
 
@@ -176,8 +189,12 @@ def import_fbxes(*args):
         cmds.confirmDialog(title='Error', message='No FBX file found in the given directory', button='OK')
         return
     
-    if user_selection is None:
-        cmds.confirmDialog(title='Error', message='Please select the root of the target character', button='OK')
+    if root_group_selection is None:
+        cmds.confirmDialog(title='Error', message='Please select the parent transform of the Root Joint of target character', button='OK')
+        return
+    
+    if root_bone_selection is None:
+        cmds.confirmDialog(title='Error', message='Please select the root joint of the target character', button='OK')
         return
     
     if not cmds.pluginInfo("fbxmaya", q=True, loaded=True):
@@ -197,10 +214,13 @@ def import_fbxes(*args):
     imported_nodes = after_import_nodes - before_import_nodes
     imported_nodes = list(imported_nodes)
     nodes = imported_nodes[0].split('|')
-   
+    
     root_node_of_imported = nodes[1]
     
-    apply_animation(root_node_of_imported,user_selection[0])
+    group_root_object = root_group_selection[0]
+    
+    apply_animation(root_node_of_imported,group_root_object)
+    create_composition(file_name_without_extension,group_root_object)
         #sys.exit()
     
 
@@ -217,9 +237,15 @@ cmds.textField('user_selected_directory_textField', editable=False)
 cmds.button(label='Choose FBX Directory', command=choose_directory_and_retrieve_fbxes)
 
 cmds.text(label='')
-cmds.text(label='Select the characters root :')
-cmds.textField('user_selected_root_bone_textField', editable=False)
-cmds.button(label='Select Target(Character) Root', command=get_selected_object_and_set_textField)
+cmds.text(label='Select the characters root group :')
+cmds.textField('user_selected_root_group_textField', editable=False)
+cmds.button(label='Select Target(Character) Root', command=get_selected_root_group_and_set_text_field)
+
+
+cmds.text(label='')
+cmds.text(label='Select the characters root joint :')
+cmds.textField('user_selected_root_joint_textField', editable=False)
+cmds.button(label='Select Character Root Joint', command=get_selected_root_joint_and_set_text_field)
 
 cmds.text(label='')
 cmds.button(label='Import', command=import_fbxes)
