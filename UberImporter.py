@@ -9,6 +9,10 @@ created_parent_constraints = []
 
 # ---- Body Retargeting ----
 
+def delete_parent_constraints_recursive(obj):
+    descendents = cmds.listRelatives(obj, allDescendents=True, fullPath=True,type='parentConstraint') or []
+    if descendents:
+        cmds.delete(descendents)
 
 
 def apply_animation(animated_root,target_root):
@@ -21,7 +25,7 @@ def apply_animation(animated_root,target_root):
     if not user_selection:
         cmds.confirmDialog(title='Error', message='Please select a root bone joint of the target', button='OK')
         return
-
+    delete_parent_constraints_recursive(target_root)
     cmds.currentTime(0, edit=True)
 
     animated_children = cmds.listRelatives(animated_root, allDescendents=True, type='transform', path=True)
@@ -47,7 +51,7 @@ def apply_animation(animated_root,target_root):
 
     cmds.bakeResults(target_children, t=(min_time, max_time), simulation=True)
 
-    delete_parent_constraint()
+    #delete_parent_constraint()
 
 
 #def reset_rotations(object_list):
@@ -179,22 +183,24 @@ def import_fbxes(*args):
     if not cmds.pluginInfo("fbxmaya", q=True, loaded=True):
         cmds.loadPlugin("fbxmaya")
      
-        
     load_fbx_plugin()
-    for fbx_path in fbx_files:
-        full_path = os.path.join(directory,fbx_path)
-        file_name_without_extension = os.path.splitext(fbx_path)[0]
+    
+    #for fbx_path in fbx_files:
+    fbx_path = fbx_files[0]
+    full_path = os.path.join(directory,fbx_path)
+    file_name_without_extension = os.path.splitext(fbx_path)[0]
         
-        before_import_nodes = set(cmds.ls(dag=True, long=True))
-        cmds.FBXImport("-f",os.path.join(directory,fbx_files[0]),'-caller "FBXMayaTranslator" -importFormat "fbx"')
-        after_import_nodes = set(cmds.ls(dag=True, long=True))
+    before_import_nodes = set(cmds.ls(dag=True, long=True))
+    cmds.FBXImport("-f",os.path.join(directory,fbx_files[0]),'-caller "FBXMayaTranslator" -importFormat "fbx"')
+    after_import_nodes = set(cmds.ls(dag=True, long=True))
         
-        imported_nodes = after_import_nodes - before_import_nodes
-        imported_nodes = list(imported_nodes)
-        nodes = imported_nodes[0].split('|')
-
-        root_node_of_imported = nodes[1]
-        apply_animation(root_node_of_imported,user_selection)
+    imported_nodes = after_import_nodes - before_import_nodes
+    imported_nodes = list(imported_nodes)
+    nodes = imported_nodes[0].split('|')
+   
+    root_node_of_imported = nodes[1]
+    
+    apply_animation(root_node_of_imported,user_selection[0])
         #sys.exit()
     
 

@@ -50,6 +50,12 @@ def select_animated_root(*args):
         cmds.textField('animated_textField', edit=True, text=animated_root[0])
 
 
+def delete_parent_constraints_recursive(obj):
+    descendents = cmds.listRelatives(obj, allDescendents=True, fullPath=True,type='parentConstraint') or []
+    if descendents:
+        cmds.delete(descendents)
+
+
 def apply_animation(*args):
     if not target_root:
         cmds.confirmDialog(title='Error', message='Please select a root of the target where you want the animation to be applied.', button='OK')
@@ -61,6 +67,7 @@ def apply_animation(*args):
         cmds.confirmDialog(title='Error', message='Please select a root bone joint of the target', button='OK')
         return
 
+    delete_parent_constraints_recursive(target_root[0])
     cmds.currentTime(0, edit=True)
 
     animated_children = cmds.listRelatives(animated_root[0], allDescendents=True, type='transform', path=True)
