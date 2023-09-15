@@ -153,16 +153,7 @@ def has_keyframes(node_name):
             return True
     return False
 
-
-def create_composition(clip_name,target_root):
-    
-    
-    all_children = cmds.listRelatives(target_root, allDescendents=True, type='joint', path=True)
-    
-    if len(all_children)==0:
-        print("No object was found")
-        return
-    
+def create_time_editor_if_doesnt_exists():
     try:
         cmds.workspaceControl('Control')
         cmds.timeEditorPanel()
@@ -171,13 +162,31 @@ def create_composition(clip_name,target_root):
             print("Error:", e)
         else:
             print("Time Editor already exists")
+
+
+def create_composition(clip_name,target_root,track_id):
+    all_children = cmds.listRelatives(target_root, allDescendents=True, type='joint', path=True)
     
-    last_composition_name = 'MyComposition'+get_last_composition_index()
-    cmds.timeEditorComposition(last_composition_name)
+    if len(all_children)==0:
+        print("No object was found")
+        return
 
     temp = ";".join(all_children)
+    
 
-    cmds.timeEditorAnimSource("anim_Clip1",ao= temp, addRelatedKG=True, removeSceneAnimation=True, includeRoot=True, recursively=True)
+    last_composition_name = 'MyComposition'+get_last_composition_index()
+    
+    if not cmds.objExists(last_composition_name):
+        cmds.timeEditorComposition(last_composition_name) 
+    
+    source_id = cmds.timeEditorAnimSource(clip_name,ao= temp, addRelatedKG=True, removeSceneAnimation=True, includeRoot=True, recursively=True)
+    cmds.timeEditorTracks(path=last_composition_name,addTrack=-1,e=1)
+    print(last_composition_name+"|track"+str(track_id))
+    cmds.timeEditorClip(clip_name,track=last_composition_name+"|track"+str(track_id), animSource=source_id, startTime=1) 
+
+def legalize_string(name):
+    legal_name = ''.join(ch if ch.isalnum() else '_' for ch in name)
+    return legal_name
 
 def import_fbxes(*args):
 
@@ -201,27 +210,30 @@ def import_fbxes(*args):
         cmds.loadPlugin("fbxmaya")
      
     load_fbx_plugin()
+    create_time_editor_if_doesnt_exists()
     
+    track_id=1
     #for fbx_path in fbx_files:
     fbx_path = fbx_files[0]
     full_path = os.path.join(directory,fbx_path)
     file_name_without_extension = os.path.splitext(fbx_path)[0]
-        
+            
     before_import_nodes = set(cmds.ls(dag=True, long=True))
     cmds.FBXImport("-f",os.path.join(directory,fbx_files[0]),'-caller "FBXMayaTranslator" -importFormat "fbx"')
     after_import_nodes = set(cmds.ls(dag=True, long=True))
-        
+            
     imported_nodes = after_import_nodes - before_import_nodes
     imported_nodes = list(imported_nodes)
     nodes = imported_nodes[0].split('|')
-    
+        
     root_node_of_imported = nodes[1]
-    
     group_root_object = root_group_selection[0]
-    
+        
     apply_animation(root_node_of_imported,group_root_object)
-    create_composition(file_name_without_extension,group_root_object)
-        #sys.exit()
+
+      
+    create_composition(file_name_without_extension,group_root_object,track_id)
+
     
 
     
