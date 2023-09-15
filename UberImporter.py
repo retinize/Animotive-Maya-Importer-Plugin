@@ -35,17 +35,10 @@ def apply_animation(animated_root,target_root):
     
     for child in animated_children:
         key_times = cmds.keyframe(child, q=True)
-        print(key_times)
         if key_times is not None and is_list_zero(key_times)==False:
             clip_duration = key_times
             break
-
-    print("Clip Duration")
-    print(clip_duration)
-    
-    print("Animated Children")
-    print(animated_children)
-    
+  
     cmds.playbackOptions(edit=True, animationStartTime=0)
     cmds.playbackOptions(edit=True, animationEndTime=clip_duration[-1])
     min_time = cmds.playbackOptions(edit=True, minTime=0)
@@ -142,8 +135,8 @@ def get_current_selection():
     selection = cmds.ls(selection=True)
 
     if selection is None or len(selection)==0:
-        print("Please choose the source of animation first !")
-        sys.exit()
+        cmds.confirmDialog(title='Error', message="Please choose the source of animation first ", button='OK')
+        return
     
     all_children = cmds.listRelatives(selection, allDescendents=True, type='joint', path=True)
     
@@ -193,11 +186,14 @@ def import_fbxes(*args):
         file_name_without_extension = os.path.splitext(fbx_path)[0]
         
         before_import_nodes = set(cmds.ls(dag=True, long=True))
-        cmds.FBXImport("-f",os.path.join(directory,fbx_files[0]),'-caller "FBXMayaTranslator" -importFormat "fbx"',"-ns",file_name_without_extension)
+        cmds.FBXImport("-f",os.path.join(directory,fbx_files[0]),'-caller "FBXMayaTranslator" -importFormat "fbx"')
         after_import_nodes = set(cmds.ls(dag=True, long=True))
         
         imported_nodes = after_import_nodes - before_import_nodes
-        root_node_of_imported = imported_nodes[0]
+        imported_nodes = list(imported_nodes)
+        nodes = imported_nodes[0].split('|')
+
+        root_node_of_imported = nodes[1]
         apply_animation(root_node_of_imported,user_selection)
         #sys.exit()
     
