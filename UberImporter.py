@@ -84,7 +84,7 @@ def create_parent_constraint(animated_children, target_children):
                 if is_root:
                     constraint = cmds.parentConstraint(animated_child, target_child)
                 else:
-                    constraint = cmds.parentConstraint(animated_child, target_child, st=['x', 'y', 'z'])
+                    constraint = cmds.parentConstraint(animated_child, target_child)
                 created_parent_constraints.append(constraint)
 
 
