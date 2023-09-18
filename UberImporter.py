@@ -2,11 +2,14 @@ import maya.cmds as cmds
 import sys
 import re
 import os
+
 fbx_files = None
 directory = None
 root_group_selection = None
 root_bone_selection = None
 created_parent_constraints = []
+last_composition_name = ""
+
 
 # ---- Body Retargeting ----
 
@@ -164,7 +167,7 @@ def create_time_editor_if_doesnt_exists():
             print("Time Editor already exists")
 
 
-def create_composition(clip_name,target_root,track_id):
+def create_track_and_editor_clip(clip_name,target_root,track_id):
     all_children = cmds.listRelatives(target_root, allDescendents=True, type='joint', path=True)
     
     if len(all_children)==0:
@@ -173,11 +176,6 @@ def create_composition(clip_name,target_root,track_id):
 
     temp = ";".join(all_children)
     
-
-    last_composition_name = 'MyComposition'+get_last_composition_index()
-    
-    if not cmds.objExists(last_composition_name):
-        cmds.timeEditorComposition(last_composition_name) 
     
     source_id = cmds.timeEditorAnimSource(clip_name,ao= temp, addRelatedKG=True, removeSceneAnimation=True, includeRoot=True, recursively=True)
     cmds.timeEditorTracks(path=last_composition_name,addTrack=-1,e=1)
@@ -187,6 +185,18 @@ def create_composition(clip_name,target_root,track_id):
 def legalize_string(name):
     legal_name = ''.join(ch if ch.isalnum() else '_' for ch in name)
     return legal_name
+
+def create_composition():
+    global last_composition_name 
+    last_composition_name = 'MyComposition'+get_last_composition_index()
+    
+    if not cmds.objExists(last_composition_name):
+        cmds.timeEditorComposition(last_composition_name) 
+
+def remove_keyframes(root_object):
+    objects = cmds.listRelatives(root_object, allDescendents=True, fullPath=True)
+    for current_object in objects:
+        cmds.cutKey(current_object, clear=True) 
 
 def import_fbxes(*args):
 
@@ -213,30 +223,33 @@ def import_fbxes(*args):
     create_time_editor_if_doesnt_exists()
     
     track_id=1
-    #for fbx_path in fbx_files:
-    fbx_path = fbx_files[0]
-    full_path = os.path.join(directory,fbx_path)
-    file_name_without_extension = os.path.splitext(fbx_path)[0]
-            
-    before_import_nodes = set(cmds.ls(dag=True, long=True))
-    cmds.FBXImport("-f",os.path.join(directory,fbx_files[0]),'-caller "FBXMayaTranslator" -importFormat "fbx"')
-    after_import_nodes = set(cmds.ls(dag=True, long=True))
-            
-    imported_nodes = after_import_nodes - before_import_nodes
-    imported_nodes = list(imported_nodes)
-    nodes = imported_nodes[0].split('|')
-        
-    root_node_of_imported = nodes[1]
-    group_root_object = root_group_selection[0]
-        
-    apply_animation(root_node_of_imported,group_root_object)
-
-      
-    create_composition(file_name_without_extension,group_root_object,track_id)
-
+    create_composition()
     
-
+    imported_node_roots=[]
     
+    for fbx_path in fbx_files:
+        remove_keyframes(root_group_selection[0])
+        full_path = os.path.join(directory,fbx_path)
+        file_name_without_extension = os.path.splitext(fbx_path)[0]
+                
+        before_import_nodes = set(cmds.ls(dag=True, long=True))
+        cmds.FBXImport("-f",os.path.join(directory,fbx_path),'-caller "FBXMayaTranslator" -importFormat "fbx"')
+        after_import_nodes = set(cmds.ls(dag=True, long=True))
+                
+        imported_nodes = after_import_nodes - before_import_nodes
+        imported_nodes = list(imported_nodes)
+        nodes = imported_nodes[0].split('|')
+            
+        root_node_of_imported = nodes[1]
+        group_root_object = root_group_selection[0]
+        
+        apply_animation(root_node_of_imported,group_root_object)
+        create_track_and_editor_clip(file_name_without_extension,group_root_object,track_id)
+        track_id +=1
+        remove_keyframes(root_group_selection[0])
+        imported_node_roots.append(root_node_of_imported)
+    cmds.delete(root_node_of_imported)
+        
     
 window = cmds.window('animation_transfer_window', title='Animotive Animation Transfer', resizeToFitChildren = True)
 cmds.window(window,edit=True,sizeable=True)
