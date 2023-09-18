@@ -119,9 +119,10 @@ def create_parent_constraint(animated_children, target_children):
                 is_root = target_child == user_selected_root_bone[0]
                 constraint = None
                 if is_root:
-                    constraint = cmds.parentConstraint(animated_child, target_child,mo=maintain_offset)
+                    constraint = cmds.parentConstraint(animated_child, target_child)
+
                 else:
-                    constraint = cmds.parentConstraint(animated_child, target_child,mo=maintain_offset, st=['x', 'y', 'z'])
+                    constraint = cmds.parentConstraint(animated_child, target_child)
                 created_parent_constraints.append(constraint)
 
 
