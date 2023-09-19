@@ -111,18 +111,28 @@ def is_list_zero(target_list):
     
     return True;        
 
+
+def is_parent(possible_parent, child):
+    parent_of_child = cmds.listRelatives(child, parent=True)
+
+    if not parent_of_child:
+        return False
+
+    return parent_of_child[0] == possible_parent
+
 def create_parent_constraint(animated_children, target_children):
     for animated_child in animated_children:
         animated_child_name = animated_child.split(':')[-1]
         for target_child in target_children:
             if animated_child_name in target_child:
                 is_root = target_child == user_selected_root_bone[0]
+                is_hips = is_parent(user_selected_root_bone[0],target_child)
                 constraint = None
-                if is_root:
+                
+                if is_root or is_hips:
                     constraint = cmds.parentConstraint(animated_child, target_child)
-
                 else:
-                    constraint = cmds.parentConstraint(animated_child, target_child)
+                    constraint = cmds.parentConstraint(animated_child, target_child,st=['x', 'y', 'z'])
                 created_parent_constraints.append(constraint)
 
 
