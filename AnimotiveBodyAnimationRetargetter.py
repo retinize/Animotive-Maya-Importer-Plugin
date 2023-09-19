@@ -96,13 +96,13 @@ def apply_animation(*args):
     delete_parent_constraint()
 
 
-#def reset_rotations(object_list):
-    #for obj in object_list:
-        #cmds.setAttr(obj + '.rotateX', 0)
-        #cmds.setAttr(obj + '.rotateY', 0)
-        #cmds.setAttr(obj + '.rotateZ', 0)
-        #cmds.setAttr(obj + '.rotate', 0, 0, 0)
-        #cmds.setKeyframe(obj, attribute='rotate')
+def reset_rotations(object_list):
+    for obj in object_list:
+        cmds.setAttr(obj + '.rotateX', 0)
+        cmds.setAttr(obj + '.rotateY', 0)
+        cmds.setAttr(obj + '.rotateZ', 0)
+        cmds.setAttr(obj + '.rotate', 0, 0, 0)
+        cmds.setKeyframe(obj, attribute='rotate')
         
 def is_list_zero(target_list):
     for item in target_list:
