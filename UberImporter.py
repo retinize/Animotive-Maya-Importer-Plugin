@@ -1,3 +1,4 @@
+import asyncio
 import maya.cmds as cmds
 import sys
 import re
@@ -19,7 +20,7 @@ def delete_parent_constraints_recursive(obj):
         cmds.delete(descendents)
 
 
-def apply_animation(animated_root,target_root):
+async def apply_animation(animated_root,target_root):
     if not target_root:
         cmds.confirmDialog(title='Error', message='Please select a root of the target where you want the animation to be applied.', button='OK')
         return
@@ -58,33 +59,38 @@ def apply_animation(animated_root,target_root):
     delete_parent_constraint()
 
 
-#def reset_rotations(object_list):
-    #for obj in object_list:
-        #cmds.setAttr(obj + '.rotateX', 0)
-        #cmds.setAttr(obj + '.rotateY', 0)
-        #cmds.setAttr(obj + '.rotateZ', 0)
-        #cmds.setAttr(obj + '.rotate', 0, 0, 0)
-        #cmds.setKeyframe(obj, attribute='rotate')
+def reset_rotations(object_list):
+    for obj in object_list:
+        cmds.setAttr(obj + '.rotateX', 0)
+        cmds.setAttr(obj + '.rotateY', 0)
+        cmds.setAttr(obj + '.rotateZ', 0)
+        cmds.setAttr(obj + '.rotate', 0, 0, 0)
+        cmds.setKeyframe(obj, attribute='rotate')
         
 def is_list_zero(target_list):
-    return(all(x == 0.0 for x in target_list))      
+    return(all(x == 0.0 for x in target_list))  
+        
+def is_parent(possible_parent, child):
+    parent_of_child = cmds.listRelatives(child, parent=True)
 
+    if not parent_of_child:
+        return False
+
+    return parent_of_child[0] == possible_parent
+    
 def create_parent_constraint(animated_children, target_children):
     for animated_child in animated_children:
         animated_child_name = animated_child.split(':')[-1]
         for target_child in target_children:
             if animated_child_name in target_child:
                 is_root = target_child == root_bone_selection[0]
-                
-                if is_root:
-                    print(target_child)
-                    print(root_bone_selection[0])
-                    
+                is_hips = is_parent(root_bone_selection[0],target_child)
                 constraint = None
-                if is_root:
+                
+                if is_root or is_hips:
                     constraint = cmds.parentConstraint(animated_child, target_child)
                 else:
-                    constraint = cmds.parentConstraint(animated_child, target_child)
+                    constraint = cmds.parentConstraint(animated_child, target_child,st=['x', 'y', 'z'])
                 created_parent_constraints.append(constraint)
 
 
@@ -167,7 +173,7 @@ def create_time_editor_if_doesnt_exists():
             print("Time Editor already exists")
 
 
-def create_track_and_editor_clip(clip_name,target_root,track_id):
+async def create_track_and_editor_clip(clip_name,target_root,track_id):
     all_children = cmds.listRelatives(target_root, allDescendents=True, type='joint', path=True)
     
     if len(all_children)==0:
@@ -175,12 +181,13 @@ def create_track_and_editor_clip(clip_name,target_root,track_id):
         return
 
     temp = ";".join(all_children)
-    
-    
+       
     source_id = cmds.timeEditorAnimSource(clip_name,ao= temp, addRelatedKG=True, removeSceneAnimation=True, includeRoot=True, recursively=True)
-    cmds.timeEditorTracks(path=last_composition_name,addTrack=-1,e=1)
-    print(last_composition_name+"|track"+str(track_id))
+    created_track_id=cmds.timeEditorTracks(path=last_composition_name,addTrack=-1,e=1)
+
+    
     cmds.timeEditorClip(clip_name,track=last_composition_name+"|track"+str(track_id), animSource=source_id, startTime=1) 
+    cmds.timeEditorTracks(path=last_composition_name, trackIndex=created_track_id, edit=True, trackMuted=True)
 
 def legalize_string(name):
     legal_name = ''.join(ch if ch.isalnum() else '_' for ch in name)
@@ -193,12 +200,19 @@ def create_composition():
     if not cmds.objExists(last_composition_name):
         cmds.timeEditorComposition(last_composition_name) 
 
-def remove_keyframes(root_object):
+async def remove_keyframes(root_object):
     objects = cmds.listRelatives(root_object, allDescendents=True, fullPath=True)
+    objects.append(root_object)
     for current_object in objects:
         cmds.cutKey(current_object, clear=True) 
+        
+        
+async def import_single_fbx(full_path):
+    cmds.FBXImport("-f",full_path,'-caller "FBXMayaTranslator" -importFormat "fbx"')
+            
 
-def import_fbxes(*args):
+        
+async def import_fbxes(*args):
 
     if directory is None or not directory :
         cmds.confirmDialog(title='Error', message='Please browse a directory to import FBX files from', button='OK')
@@ -225,15 +239,14 @@ def import_fbxes(*args):
     track_id=1
     create_composition()
     
-    imported_node_roots=[]
-    
     for fbx_path in fbx_files:
-        remove_keyframes(root_group_selection[0])
+        #fbx_path = fbx_files[3]
+        await remove_keyframes(root_group_selection[0])
         full_path = os.path.join(directory,fbx_path)
         file_name_without_extension = os.path.splitext(fbx_path)[0]
                 
         before_import_nodes = set(cmds.ls(dag=True, long=True))
-        cmds.FBXImport("-f",os.path.join(directory,fbx_path),'-caller "FBXMayaTranslator" -importFormat "fbx"')
+        await import_single_fbx(os.path.join(directory,fbx_path))
         after_import_nodes = set(cmds.ls(dag=True, long=True))
                 
         imported_nodes = after_import_nodes - before_import_nodes
@@ -243,14 +256,19 @@ def import_fbxes(*args):
         root_node_of_imported = nodes[1]
         group_root_object = root_group_selection[0]
         
-        apply_animation(root_node_of_imported,group_root_object)
-        create_track_and_editor_clip(file_name_without_extension,group_root_object,track_id)
+        await apply_animation(root_node_of_imported,group_root_object)
+        await create_track_and_editor_clip(file_name_without_extension,group_root_object,track_id)
         track_id +=1
-        remove_keyframes(root_group_selection[0])
-        imported_node_roots.append(root_node_of_imported)
-    cmds.delete(root_node_of_imported)
+        await remove_keyframes(root_group_selection[0])
+
+        cmds.delete(root_node_of_imported)
+
+def on_button_click(*args):
+    asyncio.run(import_fbxes())
         
-    
+if cmds.window('animation_transfer_window', exists=True):
+    cmds.deleteUI('animation_transfer_window', window=True)
+        
 window = cmds.window('animation_transfer_window', title='Animotive Animation Transfer', resizeToFitChildren = True)
 cmds.window(window,edit=True,sizeable=True)
 cmds.columnLayout(adjustableColumn=True)
@@ -273,6 +291,6 @@ cmds.textField('user_selected_root_joint_textField', editable=False)
 cmds.button(label='Select Character Root Joint', command=get_selected_root_joint_and_set_text_field)
 
 cmds.text(label='')
-cmds.button(label='Import', command=import_fbxes)
+cmds.button(label='Import', command=on_button_click)
 
 cmds.showWindow(window)
