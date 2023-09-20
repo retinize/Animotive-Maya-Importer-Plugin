@@ -25,7 +25,6 @@ def select_target_root(*args):
     else:
         cmds.textField('target_textField', edit=True, text=target_root[0])
 
-
 def select_root_bone(*args):
     global user_selected_root_bone
     user_selected_root_bone = cmds.ls(selection=True, type='transform')
@@ -50,6 +49,12 @@ def select_animated_root(*args):
         cmds.textField('animated_textField', edit=True, text=animated_root[0])
 
 
+def delete_parent_constraints_recursive(obj):
+    descendents = cmds.listRelatives(obj, allDescendents=True, fullPath=True,type='parentConstraint') or []
+    if descendents:
+        cmds.delete(descendents)
+
+
 def apply_animation(*args):
     if not target_root:
         cmds.confirmDialog(title='Error', message='Please select a root of the target where you want the animation to be applied.', button='OK')
@@ -61,6 +66,7 @@ def apply_animation(*args):
         cmds.confirmDialog(title='Error', message='Please select a root bone joint of the target', button='OK')
         return
 
+    delete_parent_constraints_recursive(target_root[0])
     cmds.currentTime(0, edit=True)
 
     animated_children = cmds.listRelatives(animated_root[0], allDescendents=True, type='transform', path=True)
@@ -90,13 +96,13 @@ def apply_animation(*args):
     delete_parent_constraint()
 
 
-#def reset_rotations(object_list):
-    #for obj in object_list:
-        #cmds.setAttr(obj + '.rotateX', 0)
-        #cmds.setAttr(obj + '.rotateY', 0)
-        #cmds.setAttr(obj + '.rotateZ', 0)
-        #cmds.setAttr(obj + '.rotate', 0, 0, 0)
-        #cmds.setKeyframe(obj, attribute='rotate')
+def reset_rotations(object_list):
+    for obj in object_list:
+        cmds.setAttr(obj + '.rotateX', 0)
+        cmds.setAttr(obj + '.rotateY', 0)
+        cmds.setAttr(obj + '.rotateZ', 0)
+        cmds.setAttr(obj + '.rotate', 0, 0, 0)
+        cmds.setKeyframe(obj, attribute='rotate')
         
 def is_list_zero(target_list):
     for item in target_list:
@@ -105,17 +111,28 @@ def is_list_zero(target_list):
     
     return True;        
 
+
+def is_parent(possible_parent, child):
+    parent_of_child = cmds.listRelatives(child, parent=True)
+
+    if not parent_of_child:
+        return False
+
+    return parent_of_child[0] == possible_parent
+
 def create_parent_constraint(animated_children, target_children):
     for animated_child in animated_children:
         animated_child_name = animated_child.split(':')[-1]
         for target_child in target_children:
             if animated_child_name in target_child:
                 is_root = target_child == user_selected_root_bone[0]
+                is_hips = is_parent(user_selected_root_bone[0],target_child)
                 constraint = None
-                if is_root:
-                    constraint = cmds.parentConstraint(animated_child, target_child,mo=maintain_offset)
+                
+                if is_root or is_hips:
+                    constraint = cmds.parentConstraint(animated_child, target_child)
                 else:
-                    constraint = cmds.parentConstraint(animated_child, target_child,mo=maintain_offset, st=['x', 'y', 'z'])
+                    constraint = cmds.parentConstraint(animated_child, target_child,st=['x', 'y', 'z'])
                 created_parent_constraints.append(constraint)
 
 
