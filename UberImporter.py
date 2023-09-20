@@ -113,8 +113,7 @@ def choose_fbx_directory_and_retrieve_fbxes(*args):
     global fbx_files
     global fbx_directory
     fbx_directory = browse_and_return_directory()
-        
-    fbx_directory = fbx_directory[0]
+
     fbx_files = collect_and_return_given_type_of_files_from_directory(fbx_directory,'.fbx')
     cmds.textField('user_selected_fbx_directory_textField', edit=True,text=fbx_directory)
 
@@ -123,7 +122,7 @@ def browse_and_return_directory():
     directory = cmds.fileDialog2(dialogStyle=2, fileMode=3)
     if not directory:
         return []
-    return directory
+    return directory[0]
   
 def collect_and_return_given_type_of_files_from_directory(directory,file_extension_to_look_for):
     return [f for f in os.listdir(directory) if f.lower().endswith(file_extension_to_look_for)]
@@ -220,7 +219,17 @@ async def import_single_fbx(full_path):
             
 def import_xml(*args):
     print("Import xml")
+    browse_xml_file()
         
+def browse_xml_file():
+    file_filter = "XML Files (*.xml)"
+    selected_file = cmds.fileDialog2(fileMode=1, fileFilter=file_filter)
+
+    if selected_file:
+        return selected_file[0]
+    return None
+    
+    
 async def import_fbxes(*args):
 
     if fbx_directory is None or not fbx_directory :
