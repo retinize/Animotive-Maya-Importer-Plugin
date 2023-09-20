@@ -5,7 +5,7 @@ import re
 import os
 
 fbx_files = None
-directory = None
+fbx_directory = None
 root_group_selection = None
 root_bone_selection = None
 created_parent_constraints = []
@@ -109,17 +109,25 @@ def load_fbx_plugin():
     if not cmds.pluginInfo(plugin_name, q=True, loaded=True):
         cmds.loadPlugin(plugin_name)
 
-def choose_directory_and_retrieve_fbxes(*args):
+def choose_fbx_directory_and_retrieve_fbxes(*args):
     global fbx_files
-    global directory
+    global fbx_directory
+    fbx_directory = browse_and_return_directory()
+        
+    fbx_directory = fbx_directory[0]
+    fbx_files = collect_and_return_given_type_of_files_from_directory(fbx_directory,'.fbx')
+    cmds.textField('user_selected_fbx_directory_textField', edit=True,text=fbx_directory)
+
+
+def browse_and_return_directory():
     directory = cmds.fileDialog2(dialogStyle=2, fileMode=3)
-    
     if not directory:
         return []
-        
-    directory = directory[0]
-    cmds.textField('user_selected_directory_textField', edit=True,text=directory)
-    fbx_files = [f for f in os.listdir(directory) if f.lower().endswith('.fbx')]
+    return directory
+  
+def collect_and_return_given_type_of_files_from_directory(directory,file_extension_to_look_for):
+    return [f for f in os.listdir(directory) if f.lower().endswith(file_extension_to_look_for)]
+    
 
 def get_selected_root_group_and_set_text_field(*args):
     global root_group_selection
@@ -210,16 +218,17 @@ async def remove_keyframes(root_object):
 async def import_single_fbx(full_path):
     cmds.FBXImport("-f",full_path,'-caller "FBXMayaTranslator" -importFormat "fbx"')
             
-
+def import_xml(*args):
+    print("Import xml")
         
 async def import_fbxes(*args):
 
-    if directory is None or not directory :
-        cmds.confirmDialog(title='Error', message='Please browse a directory to import FBX files from', button='OK')
+    if fbx_directory is None or not fbx_directory :
+        cmds.confirmDialog(title='Error', message='Please browse a fbx_directory to import FBX files from', button='OK')
         return
     
     if fbx_files is None or len(fbx_files)==0:
-        cmds.confirmDialog(title='Error', message='No FBX file found in the given directory', button='OK')
+        cmds.confirmDialog(title='Error', message='No FBX file found in the given fbx_directory', button='OK')
         return
     
     if root_group_selection is None:
@@ -242,11 +251,11 @@ async def import_fbxes(*args):
     for fbx_path in fbx_files:
         #fbx_path = fbx_files[3]
         await remove_keyframes(root_group_selection[0])
-        full_path = os.path.join(directory,fbx_path)
+        full_path = os.path.join(fbx_directory,fbx_path)
         file_name_without_extension = os.path.splitext(fbx_path)[0]
                 
         before_import_nodes = set(cmds.ls(dag=True, long=True))
-        await import_single_fbx(os.path.join(directory,fbx_path))
+        await import_single_fbx(os.path.join(fbx_directory,fbx_path))
         after_import_nodes = set(cmds.ls(dag=True, long=True))
                 
         imported_nodes = after_import_nodes - before_import_nodes
@@ -275,9 +284,9 @@ cmds.columnLayout(adjustableColumn=True)
 
 
 cmds.text(label='')
-cmds.text(label='Select the directory which contains FBX files to import :')
-cmds.textField('user_selected_directory_textField', editable=False)
-cmds.button(label='Choose FBX Directory', command=choose_directory_and_retrieve_fbxes)
+cmds.text(label='Select the fbx_directory which contains FBX files to import :')
+cmds.textField('user_selected_fbx_directory_textField', editable=False)
+cmds.button(label='Choose FBX fbx_directory', command=choose_fbx_directory_and_retrieve_fbxes)
 
 cmds.text(label='')
 cmds.text(label='Select the characters root group :')
@@ -292,5 +301,8 @@ cmds.button(label='Select Character Root Joint', command=get_selected_root_joint
 
 cmds.text(label='')
 cmds.button(label='Import', command=on_button_click)
+
+cmds.text(label='')
+cmds.button(label='Choose XML', command=import_xml)
 
 cmds.showWindow(window)
