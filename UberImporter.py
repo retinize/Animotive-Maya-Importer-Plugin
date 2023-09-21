@@ -3,9 +3,11 @@ import maya.cmds as cmds
 import sys
 import re
 import os
+import xml.etree.ElementTree as ET
+
 
 fbx_files = None
-fbx_directory = None
+import_directory = None
 root_group_selection = None
 root_bone_selection = None
 created_parent_constraints = []
@@ -109,13 +111,16 @@ def load_fbx_plugin():
     if not cmds.pluginInfo(plugin_name, q=True, loaded=True):
         cmds.loadPlugin(plugin_name)
 
-def choose_fbx_directory_and_retrieve_fbxes(*args):
+def choose_import_directory_and_retrieve_files(*args):
     global fbx_files
-    global fbx_directory
-    fbx_directory = browse_and_return_directory()
+    global json_files
+    global import_directory
+    import_directory = browse_and_return_directory()
+    
+    fbx_files = collect_and_return_given_type_of_files_from_directory(import_directory,'.fbx')
+    json_files = collect_and_return_given_type_of_files_from_directory(import_directory,'.json')
 
-    fbx_files = collect_and_return_given_type_of_files_from_directory(fbx_directory,'.fbx')
-    cmds.textField('user_selected_fbx_directory_textField', edit=True,text=fbx_directory)
+    cmds.textField('user_selected_import_directory_textField', edit=True,text=import_directory)
 
 
 def browse_and_return_directory():
@@ -212,14 +217,32 @@ async def remove_keyframes(root_object):
     objects.append(root_object)
     for current_object in objects:
         cmds.cutKey(current_object, clear=True) 
-        
-        
+      
 async def import_single_fbx(full_path):
     cmds.FBXImport("-f",full_path,'-caller "FBXMayaTranslator" -importFormat "fbx"')
+
             
 def import_xml(*args):
-    print("Import xml")
-    browse_xml_file()
+    xml_file_full_path = browse_xml_file()
+    tree = ET.parse(xml_file_full_path)
+    root = tree.getroot()
+
+    for clip_item in root.findall(".//clipitem"):
+        file_node = clip_item.find("file")
+
+        file_name = file_node.find("name")
+        if file_name is not None:
+            file_full_path = file_name.text
+            file_name_without_extension = os.path.splitext(file_full_path)[0]
+            
+            print(file_name_without_extension)
+            
+        
+
+
+
+
+
         
 def browse_xml_file():
     file_filter = "XML Files (*.xml)"
@@ -232,12 +255,12 @@ def browse_xml_file():
     
 async def import_fbxes(*args):
 
-    if fbx_directory is None or not fbx_directory :
-        cmds.confirmDialog(title='Error', message='Please browse a fbx_directory to import FBX files from', button='OK')
+    if import_directory is None or not import_directory :
+        cmds.confirmDialog(title='Error', message='Please browse a import_directory to import FBX files from', button='OK')
         return
     
     if fbx_files is None or len(fbx_files)==0:
-        cmds.confirmDialog(title='Error', message='No FBX file found in the given fbx_directory', button='OK')
+        cmds.confirmDialog(title='Error', message='No FBX file found in the given import_directory', button='OK')
         return
     
     if root_group_selection is None:
@@ -260,11 +283,11 @@ async def import_fbxes(*args):
     for fbx_path in fbx_files:
         #fbx_path = fbx_files[3]
         await remove_keyframes(root_group_selection[0])
-        full_path = os.path.join(fbx_directory,fbx_path)
+        full_path = os.path.join(import_directory,fbx_path)
         file_name_without_extension = os.path.splitext(fbx_path)[0]
                 
         before_import_nodes = set(cmds.ls(dag=True, long=True))
-        await import_single_fbx(os.path.join(fbx_directory,fbx_path))
+        await import_single_fbx(os.path.join(import_directory,fbx_path))
         after_import_nodes = set(cmds.ls(dag=True, long=True))
                 
         imported_nodes = after_import_nodes - before_import_nodes
@@ -293,9 +316,9 @@ cmds.columnLayout(adjustableColumn=True)
 
 
 cmds.text(label='')
-cmds.text(label='Select the fbx_directory which contains FBX files to import :')
-cmds.textField('user_selected_fbx_directory_textField', editable=False)
-cmds.button(label='Choose FBX fbx_directory', command=choose_fbx_directory_and_retrieve_fbxes)
+cmds.text(label='Select the import_directory which contains FBX and JSON files to import :')
+cmds.textField('user_selected_import_directory_textField', editable=False)
+cmds.button(label='Choose Import Directory', command=choose_import_directory_and_retrieve_files)
 
 cmds.text(label='')
 cmds.text(label='Select the characters root group :')
@@ -311,7 +334,7 @@ cmds.button(label='Select Character Root Joint', command=get_selected_root_joint
 cmds.text(label='')
 cmds.button(label='Import', command=on_button_click)
 
-cmds.text(label='')
-cmds.button(label='Choose XML', command=import_xml)
+#cmds.text(label='')
+#cmds.button(label='Choose XML', command=import_xml)
 
 cmds.showWindow(window)
