@@ -64,12 +64,6 @@ def set_keyframes_from_json(*args):
         print("Target object was not selected !")
         return
 
-    #content = cmds.textField(blendshape_text_field, query=True, text=True)
-
-    #if content is None:
-    #    print("You need to type a blendshape name..")
-    #    return
-
     if pathOfFileToLoad is None:
         print("No json file was selected..")
         return
@@ -130,8 +124,7 @@ cmds.text(label='Select target object to apply blendshape animation:')
 target_text_field = cmds.textField('target_textField', editable=False)
 target_button = cmds.button(label='Select', command=select_target_root)
 
-#cmds.text(label='Write the blendshape node name that you want to apply animation to:')
-#blendshape_text_field = cmds.textField(placeholderText='Enter your text here')
+
 cmds.text(label='')
 apply_button = cmds.button(label='Apply Animation', command=set_keyframes_from_json)
 
