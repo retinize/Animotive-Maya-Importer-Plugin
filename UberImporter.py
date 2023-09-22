@@ -9,18 +9,18 @@ import xml.etree.ElementTree as ET
 fbx_files = None
 import_directory = None
 root_group_selection = None
+graphics_group_selection =None
 root_bone_selection = None
 created_parent_constraints = []
 last_composition_name = ""
 
 
-# ---- Body Retargeting ----
+# ---- Beginning of Body Retargeting ----
 
 def delete_parent_constraints_recursive(obj):
     descendents = cmds.listRelatives(obj, allDescendents=True, fullPath=True,type='parentConstraint') or []
     if descendents:
         cmds.delete(descendents)
-
 
 async def apply_animation(animated_root,target_root):
     if not target_root:
@@ -54,12 +54,9 @@ async def apply_animation(animated_root,target_root):
     cmds.playbackOptions(edit=True, animationEndTime=clip_duration[-1])
     min_time = cmds.playbackOptions(edit=True, minTime=0)
     max_time = cmds.playbackOptions(edit=True, maxTime=clip_duration[-1])
-    
 
     cmds.bakeResults(target_children, t=(min_time, max_time), simulation=True)
-
     delete_parent_constraint()
-
 
 def reset_rotations(object_list):
     for obj in object_list:
@@ -68,10 +65,10 @@ def reset_rotations(object_list):
         cmds.setAttr(obj + '.rotateZ', 0)
         cmds.setAttr(obj + '.rotate', 0, 0, 0)
         cmds.setKeyframe(obj, attribute='rotate')
-        
+
 def is_list_zero(target_list):
     return(all(x == 0.0 for x in target_list))  
-        
+
 def is_parent(possible_parent, child):
     parent_of_child = cmds.listRelatives(child, parent=True)
 
@@ -79,7 +76,7 @@ def is_parent(possible_parent, child):
         return False
 
     return parent_of_child[0] == possible_parent
-    
+
 def create_parent_constraint(animated_children, target_children):
     for animated_child in animated_children:
         animated_child_name = animated_child.split(':')[-1]
@@ -105,6 +102,32 @@ def delete_parent_constraint():
 
 # ---- End of Body Retargeting ----
 
+# ---- Beginning of Facial Retargeting ----
+
+def get_graphics_root_group_and_set_text_field(*args):
+    global graphics_group_selection
+    graphics_group_selection = cmds.ls(selection=True, type='transform')
+    collect_all_shapes_from_geo_group()
+    if len(graphics_group_selection) != 1:
+        graphics_group_selection = None
+        cmds.textField('user_selected_graphics_group_text_field', edit=True, text='')
+        cmds.confirmDialog(title='Error', message="Please select geo group", button='OK')
+    else:
+        cmds.textField('user_selected_graphics_group_text_field', edit=True, text=graphics_group_selection[0])
+
+
+def collect_all_shapes_from_geo_group():
+    all_children = cmds.listRelatives(graphics_group_selection,allDescendents=True)
+    all_children = filter(lambda child: cmds.nodeType(child)=="mesh",all_children)
+    
+    for child in all_children:
+        print(child+" --- "+cmds.nodeType(child))
+    
+
+# ---- End of Facial Retargeting ----
+
+
+
 
 def load_fbx_plugin():
     plugin_name = "fbxmaya"
@@ -121,6 +144,7 @@ def choose_import_directory_and_retrieve_files(*args):
     json_files = collect_and_return_given_type_of_files_from_directory(import_directory,'.json')
 
     cmds.textField('user_selected_import_directory_textField', edit=True,text=import_directory)
+    
 
 
 def browse_and_return_directory():
@@ -143,7 +167,6 @@ def get_selected_root_group_and_set_text_field(*args):
         cmds.confirmDialog(title='Error', message="Please select the parent object of the character rig group", button='OK')
     else:
         cmds.textField('user_selected_root_group_textField', edit=True, text=root_group_selection[0])
-        return root_group_selection
 
 def get_selected_root_joint_and_set_text_field(*args):
     global root_bone_selection
@@ -155,7 +178,7 @@ def get_selected_root_joint_and_set_text_field(*args):
         cmds.confirmDialog(title='Error', message="Please select the character root Joint of the target character", button='OK')
     else:
         cmds.textField('user_selected_root_joint_textField', edit=True, text=root_bone_selection[0])
-        return root_bone_selection
+
             
 
 def get_last_composition_index():
@@ -236,11 +259,6 @@ def import_xml(*args):
             file_name_without_extension = os.path.splitext(file_full_path)[0]
             
             print(file_name_without_extension)
-            
-        
-
-
-
 
 
         
@@ -254,7 +272,6 @@ def browse_xml_file():
     
     
 async def import_fbxes(*args):
-
     if import_directory is None or not import_directory :
         cmds.confirmDialog(title='Error', message='Please browse a import_directory to import FBX files from', button='OK')
         return
@@ -271,6 +288,9 @@ async def import_fbxes(*args):
         cmds.confirmDialog(title='Error', message='Please select the root joint of the target character', button='OK')
         return
     
+    if graphics_group_selection is None:
+        cmds.confirmDialog(title='Error', message='Please select geo group for your character', button='OK')
+    
     if not cmds.pluginInfo("fbxmaya", q=True, loaded=True):
         cmds.loadPlugin("fbxmaya")
      
@@ -281,7 +301,6 @@ async def import_fbxes(*args):
     create_composition()
     
     for fbx_path in fbx_files:
-        #fbx_path = fbx_files[3]
         await remove_keyframes(root_group_selection[0])
         full_path = os.path.join(import_directory,fbx_path)
         file_name_without_extension = os.path.splitext(fbx_path)[0]
@@ -330,6 +349,12 @@ cmds.text(label='')
 cmds.text(label='Select the characters root joint :')
 cmds.textField('user_selected_root_joint_textField', editable=False)
 cmds.button(label='Select Character Root Joint', command=get_selected_root_joint_and_set_text_field)
+
+cmds.text(label='')
+cmds.text(label='Select geo group of your character :')
+cmds.textField('user_selected_graphics_group_text_field', editable=False)
+cmds.button(label='Select Geo Group', command=get_graphics_root_group_and_set_text_field)
+
 
 cmds.text(label='')
 cmds.button(label='Import', command=on_button_click)
