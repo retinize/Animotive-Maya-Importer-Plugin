@@ -197,7 +197,19 @@ def set_keyframes_from_json(path_of_file_to_load,target_root,names):
     #if not is_failed:    
     #    cmds.confirmDialog(title='Error', message=" Success ! ", button='OK')
     return is_failed==False # if it's not failed than it was a successful operation
-  
+
+def apply_given_json_file(full_json_path):
+    print("Starting application of facial animation")
+    all_possible_shape_objects= collect_all_shapes_from_geo_group()
+
+    facial_animated_objects = []
+    for possible_shape_object in all_possible_shape_objects:
+        was_operation_success = set_keyframes_from_json(full_json_path,possible_shape_object,get_blendshape_node_from_geo(possible_shape_object))
+        if was_operation_success:
+            print("Successfully applied facial animation to '"+possible_shape_object+"'")
+            facial_animated_objects.append(possible_shape_object)
+
+    return facial_animated_objects
 
 # ---- End of Facial Retargeting ----
 
@@ -282,20 +294,18 @@ def create_time_editor_if_doesnt_exists():
         else:
             print("Time Editor already exists")
 
-
-async def create_track_and_editor_clip(clip_name,target_root,track_id):
+async def create_track_and_editor_clip(clip_name,target_root,track_id,facially_animated_objects):
     all_children = cmds.listRelatives(target_root, allDescendents=True, type='joint', path=True)
-    
+
     if len(all_children)==0:
         print("No object was found")
         return
 
-    temp = ";".join(all_children)
+    all_children_jointed = ";".join(all_children)
        
-    source_id = cmds.timeEditorAnimSource(clip_name,ao= temp, addRelatedKG=True, removeSceneAnimation=True, includeRoot=True, recursively=True)
+    source_id = cmds.timeEditorAnimSource(clip_name,ao= all_children_jointed, addRelatedKG=True, removeSceneAnimation=True, includeRoot=True, recursively=True)
     created_track_id=cmds.timeEditorTracks(path=last_composition_name,addTrack=-1,e=1)
 
-    
     cmds.timeEditorClip(clip_name,track=last_composition_name+"|track"+str(track_id), animSource=source_id, startTime=1) 
     cmds.timeEditorTracks(path=last_composition_name, trackIndex=created_track_id, edit=True, trackMuted=True)
 
@@ -334,8 +344,6 @@ def import_xml(*args):
             file_name_without_extension = os.path.splitext(file_full_path)[0]
             
             print(file_name_without_extension)
-
-
         
 def browse_xml_file():
     file_filter = "XML Files (*.xml)"
@@ -362,53 +370,53 @@ async def import_fbxes(*args):
     # if root_bone_selection is None:
     #     cmds.confirmDialog(title='Error', message='Please select the root joint of the target character', button='OK')
     #     return
-    
-    if graphics_group_selection is None:
-        cmds.confirmDialog(title='Error', message='Please select geo group for your character', button='OK')
-        return
-    
+    #
+    # if graphics_group_selection is None:
+    #     cmds.confirmDialog(title='Error', message='Please select geo group for your character', button='OK')
+    #     return
+    #
     # if not cmds.pluginInfo("fbxmaya", q=True, loaded=True):
     #     cmds.loadPlugin("fbxmaya")
-    #
-    # load_fbx_plugin()
-    # create_time_editor_if_doesnt_exists()
-    #
-    # track_id=1
-    # create_composition()
-    
-    # for json_file in json_files:
-    full_json_path = os.path.join(import_directory, json_files[0])
-    all_possible_shape_objects= collect_all_shapes_from_geo_group()
-    
-    print("Starting application of facial animation")
-    for possible_shape_object in all_possible_shape_objects:
-        set_keyframes_from_json(full_json_path,possible_shape_object,get_blendshape_node_from_geo(possible_shape_object))
 
+    load_fbx_plugin()
+    create_time_editor_if_doesnt_exists()
 
-    
-    
-    # for fbx_path in fbx_files:
-    #     await remove_keyframes(root_group_selection[0])
-    #     full_path = os.path.join(import_directory,fbx_path)
-    #     file_name_without_extension = os.path.splitext(fbx_path)[0]
-    #
-    #     before_import_nodes = set(cmds.ls(dag=True, long=True))
-    #     await import_single_fbx(os.path.join(import_directory,fbx_path))
-    #     after_import_nodes = set(cmds.ls(dag=True, long=True))
-    #
-    #     imported_nodes = after_import_nodes - before_import_nodes
-    #     imported_nodes = list(imported_nodes)
-    #     nodes = imported_nodes[0].split('|')
-    #
-    #     root_node_of_imported = nodes[1]
-    #     group_root_object = root_group_selection[0]
-    #
-    #     await apply_animation(root_node_of_imported,group_root_object)
-    #     await create_track_and_editor_clip(file_name_without_extension,group_root_object,track_id)
-    #     track_id +=1
-    #     await remove_keyframes(root_group_selection[0])
-    #
-    #     cmds.delete(root_node_of_imported)
+    track_id=1
+    create_composition()
+
+    for fbx_file_name in fbx_files:
+
+        parts = fbx_file_name.split('_')
+        scene_group_take_name_from_fbx = '_'.join(parts[:4])
+
+        connected_json_file = [json_file for json_file in json_files if json_file.startswith(scene_group_take_name_from_fbx)]
+        facially_animated_objects = []
+        if connected_json_file != connected_json_file:
+            connected_json_file = connected_json_file[0]
+            full_json_path = os.path.join(import_directory,connected_json_file)
+            facially_animated_objects = apply_given_json_file(full_json_path)
+
+        # await remove_keyframes(root_group_selection[0])
+        # full_path = os.path.join(import_directory,fbx_file_name)
+        # file_name_without_extension = os.path.splitext(fbx_file_name)[0]
+        #
+        # before_import_nodes = set(cmds.ls(dag=True, long=True))
+        # await import_single_fbx(os.path.join(import_directory,fbx_file_name))
+        # after_import_nodes = set(cmds.ls(dag=True, long=True))
+        #
+        # imported_nodes = after_import_nodes - before_import_nodes
+        # imported_nodes = list(imported_nodes)
+        # nodes = imported_nodes[0].split('|')
+        #
+        # root_node_of_imported = nodes[1]
+        # group_root_object = root_group_selection[0]
+        #
+        # await apply_animation(root_node_of_imported,group_root_object)
+        # await create_track_and_editor_clip(file_name_without_extension,group_root_object,track_id,facially_animated_objects)
+        # track_id +=1
+        # await remove_keyframes(root_group_selection[0])
+        #
+        # cmds.delete(root_node_of_imported)
 
 def on_button_click(*args):
     asyncio.run(import_fbxes())
@@ -419,7 +427,6 @@ if cmds.window('animation_transfer_window', exists=True):
 window = cmds.window('animation_transfer_window', title='Animotive Animation Transfer', resizeToFitChildren = True)
 cmds.window(window,edit=True,sizeable=True)
 cmds.columnLayout(adjustableColumn=True)
-
 
 cmds.text(label='')
 cmds.text(label='Select the import_directory which contains FBX and JSON files to import :')
