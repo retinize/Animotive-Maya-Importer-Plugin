@@ -11,7 +11,7 @@ import json
 fbx_files = None
 import_directory = None
 root_group_selection = None
-graphics_group_selection =None
+facial_animation_target_selection =None
 root_bone_selection = None
 created_parent_constraints = []
 last_composition_name = ""
@@ -107,37 +107,30 @@ def delete_parent_constraint():
 # ---- Beginning of Facial Retargeting ----
 
 def get_graphics_root_group_and_set_text_field(*args):
-    global graphics_group_selection
-    graphics_group_selection = cmds.ls(selection=True, type='transform')
+    global facial_animation_target_selection
+    facial_animation_target_selection = cmds.ls(selection=True, type='transform')
 
-    if len(graphics_group_selection) != 1:
-        graphics_group_selection = None
+    if len(facial_animation_target_selection) != 1:
+        facial_animation_target_selection = None
         cmds.textField('user_selected_graphics_group_text_field', edit=True, text='')
-        cmds.confirmDialog(title='Error', message="Please select geo group", button='OK')
+        cmds.confirmDialog(title='Error', message="Please select target object to apply facial animation", button='OK')
     else:
-        cmds.textField('user_selected_graphics_group_text_field', edit=True, text=graphics_group_selection[0])
+        cmds.textField('user_selected_graphics_group_text_field', edit=True, text=facial_animation_target_selection[0])
 
 
-def collect_all_shapes_from_geo_group():
-    all_children = cmds.listRelatives(graphics_group_selection,allDescendents=True)
-    #all_children = filter(lambda child: cmds.nodeType(child)=="mesh",all_children)
-    return all_children
-
-
-
-def get_blendshape_node_from_geo(graphic_object):
-    nodes = []
-
-    history = cmds.listHistory(graphic_object)
-    for node in history:
-        if cmds.nodeType(node) == 'blendShape':
-            nodes.append(node)
-
-    return (nodes)
+#
+# def get_blendshape_node_from_geo(graphic_object):
+#     nodes = []
+#
+#     history = cmds.listHistory(graphic_object)
+#     for node in history:
+#         if cmds.nodeType(node) == 'blendShape':
+#             nodes.append(node)
+#
+#     return (nodes)
 
 
 def set_playback_speed(facial_animation_clip_data):
-
     facial_animation_frames = facial_animation_clip_data['facialAnimationFrames']
     frame_count = len(facial_animation_frames)
     cmds.currentUnit(time='ntscf')
@@ -147,8 +140,9 @@ def set_playback_speed(facial_animation_clip_data):
     cmds.playbackOptions(edit=True, maxTime=frame_count)
 
 
-def set_keyframes_from_json(path_of_file_to_load,target_root,names):
-    if graphics_group_selection is None:
+def set_keyframes_from_json(path_of_file_to_load,name):
+    print("NAMES : ",names)
+    if facial_animation_target_selection is None:
         print("Target object was not selected !")
         return
 
@@ -169,68 +163,94 @@ def set_keyframes_from_json(path_of_file_to_load,target_root,names):
 
     all_geos_from_json=character_geos[0]["blendShapeNames"]
 
-    for name in names:
-        for frame in range(0, len(facial_animation_frames)):
-            blendshapes_per_frame = facial_animation_frames[frame]
+    for frame in range(0, len(facial_animation_frames)):
+        blendshapes_per_frame = facial_animation_frames[frame]
+        if is_failed:
+            break
+        for blendshapeUsed in blendshapes_per_frame["blendShapesUsed"]:
+            geo_index = blendshapeUsed["g"]
+            # geo_name = character_geos[geo_index]["skinnedMeshRendererName"]
+            blendshape_names = character_geos[geo_index]["blendShapeNames"]
+            bs_index = blendshapeUsed["i"]
+            bs_name = blendshape_names[bs_index]
+            bs_value = blendshapeUsed["v"] / 100
+            # blendshapeIndex = blendshapeUsed['i']
+
             if is_failed:
                 break
-            for blendshapeUsed in blendshapes_per_frame["blendShapesUsed"]:
-                geo_index = blendshapeUsed["g"]
-                # geo_name = character_geos[geo_index]["skinnedMeshRendererName"]
-                blendshape_names = character_geos[geo_index]["blendShapeNames"]
-                bs_index = blendshapeUsed["i"]
-                bs_name = blendshape_names[bs_index]
-                bs_value = blendshapeUsed["v"] / 100
-                # blendshapeIndex = blendshapeUsed['i']
 
-                if is_failed:
+            targetBlendShape = name + "." + bs_name
+            if not is_failed:
+
+                try:
+                    cmds.setKeyframe(targetBlendShape, time=frame, value=bs_value)
+                except:
+                    # cmds.confirmDialog(title='Error', message="There's no node with the name '"+targetBlendShape+"' please select another object and try again ", button='OK')
+                    is_failed = True
                     break
 
-                targetBlendShape = name + "." + bs_name
-                if not is_failed:
-
-                    try:
-                        cmds.setKeyframe(targetBlendShape, time=frame, value=bs_value)
-                    except:
-                        # cmds.confirmDialog(title='Error', message="There's no node with the name '"+targetBlendShape+"' please select another object and try again ", button='OK')
-                        is_failed = True
-                        break
-
-                else:
-                    break
+            else:
+                break
 
     #if not is_failed:    
     #    cmds.confirmDialog(title='Error', message=" Success ! ", button='OK')
 
     result = is_failed==False
 
-    all_geos_full_name = []
-    if result:
-        for name in names:
-            for blendshape_name in all_geos_from_json:
-                target_blend_shape = name+"."+blendshape_name
-                all_geos_full_name.append(target_blend_shape)
-    else:
-        all_geos_full_name=None
-    return (result,all_geos_full_name) # if it's not failed than it was a successful operation
+    return result # if it's not failed than it was a successful operation
 
 async def apply_given_json_file(full_json_path):
-    print("Starting application of facial animation")
-    all_possible_shape_objects= collect_all_shapes_from_geo_group()
-
-    facial_animated_objects = []
-    facial_animation_attributes =[]
-    for possible_shape_object in all_possible_shape_objects:
-        json_operation_result = set_keyframes_from_json(full_json_path,possible_shape_object,get_blendshape_node_from_geo(possible_shape_object))
-        was_operation_success = json_operation_result[0]
-
-        if was_operation_success:
-            facial_animated_objects.append(possible_shape_object)
-            facial_animation_attributes=json_operation_result[1]
-
-    return (facial_animated_objects,facial_animation_attributes)
+    print("Starting applying facial animation")
+    result = get_blendshape_node(facial_animation_target_selection[0])
+    print(result)
+    if result is None:
+        print("FAILED : Selected object doesn't have shape to write animation to ..")
+        return False
+    return set_keyframes_from_json(full_json_path,result)
 
 
+def get_blendshape_node(shapeNode):
+    print("shape : ",shapeNode)
+    history = cmds.listHistory(shapeNode)
+    blendshapes = cmds.ls(history, type='blendShape')
+    return blendshapes[0] if blendshapes else None
+
+async def delete_blendshape_keyframes(transformNode):
+    shapes = cmds.listRelatives(transformNode, shapes=True)
+    if not shapes:
+        print("No shape node found for", transformNode)
+        return
+
+    blendshapeNode = getBlendShapeNode(shapes[0])
+    if not blendshapeNode:
+        print("No blendshape node found for", transformNode)
+        return
+
+
+    numWeights = cmds.blendShape(blendshapeNode, query=True, weightCount=True)
+    for i in range(numWeights):
+        weightAttr = "{}.weight[{}]".format(blendshapeNode, i)
+        if cmds.keyframe(weightAttr, query=True, keyframeCount=True) > 0:
+            cmds.cutKey(weightAttr)
+
+
+
+async def set_all_blendshapes_to_zero(transformNode):
+
+    shapes = cmds.listRelatives(transformNode, shapes=True)
+    if not shapes:
+        print("No shape node found for", transformNode)
+        return
+
+    blendshapeNode = getBlendShapeNode(shapes[0])
+    if not blendshapeNode:
+        print("No blendshape node found for", transformNode)
+        return
+
+    numWeights = cmds.blendShape(blendshapeNode, query=True, weightCount=True)
+    for i in range(numWeights):
+        weightAttr = "{}.weight[{}]".format(blendshapeNode, i)
+        cmds.setAttr(weightAttr, 0)
 
 
 
@@ -318,7 +338,7 @@ def create_time_editor_if_doesnt_exists():
         else:
             print("Time Editor already exists")
 
-async def create_track_and_editor_clip(clip_name,target_root,track_id,facially_animated_objects):
+async def create_track_and_editor_clip(clip_name,target_root,track_id):
     all_children = cmds.listRelatives(target_root, allDescendents=True, type='joint', path=True)
 
     if len(all_children)==0:
@@ -344,17 +364,15 @@ def create_composition():
     if not cmds.objExists(last_composition_name):
         cmds.timeEditorComposition(last_composition_name) 
 
-async def remove_keyframes(root_object,facial_attributes):
+async def remove_keyframes(root_object,should_remove_blendshapes):
     objects = cmds.listRelatives(root_object, allDescendents=True, fullPath=True)
     objects.append(root_object)
 
-    if facial_attributes is None:
+    if not should_remove_blendshapes:
         for current_object in objects:
             cmds.cutKey(current_object, clear=True)
     else:
-        print("facial !!!!!!!!!")
-        for att in facial_attributes:
-            cmds.cutKey(att)
+        await delete_blendshape_keyframes(root_object)
       
 async def import_single_fbx(full_path):
     cmds.FBXImport("-f",full_path,'-caller "FBXMayaTranslator" -importFormat "fbx"')
@@ -401,8 +419,8 @@ async def import_animations(*args):
         cmds.confirmDialog(title='Error', message='Please select the root joint of the target character', button='OK')
         return
 
-    if graphics_group_selection is None:
-        cmds.confirmDialog(title='Error', message='Please select geo group for your character', button='OK')
+    if facial_animation_target_selection is None:
+        cmds.confirmDialog(title='Error', message='Please select target to apply facial animation to', button='OK')
         return
 
     if not cmds.pluginInfo("fbxmaya", q=True, loaded=True):
@@ -413,7 +431,7 @@ async def import_animations(*args):
 
     track_id=1
     create_composition()
-
+    await set_all_blendshapes_to_zero(facial_animation_target_selection[0])
     for fbx_file_name in fbx_files:
 
         parts = fbx_file_name.split('_')
@@ -421,21 +439,20 @@ async def import_animations(*args):
 
         connected_json_file = [json_file for json_file in json_files if json_file.startswith(scene_group_take_name_from_fbx)]
 
-        facially_animated_objects = []
-        facial_animation_attributes = []
 
-        await remove_keyframes(root_group_selection[0],None) # Remove keyframes from the body
+        await remove_keyframes(root_group_selection[0],False) # Remove keyframes from the body
+        await remove_keyframes(facial_animation_target_selection[0], True)  # Remove keyframes from the face
+
 
         if connected_json_file:
             connected_json_file = connected_json_file[0]
             full_json_path = os.path.join(import_directory,connected_json_file)
             json_operation_result = await apply_given_json_file(full_json_path)
-
-            facially_animated_objects = json_operation_result[0]
-            facial_animation_attributes = json_operation_result[1]
-
-
-
+            print(json_operation_result)
+            if not json_operation_result:
+                print("json import failed ! Make sure you have related json file for your animation exported from Animotive !")
+            else:
+                print("SUCCESS")
 
         full_path = os.path.join(import_directory,fbx_file_name)
         file_name_without_extension = os.path.splitext(fbx_file_name)[0]
@@ -452,12 +469,12 @@ async def import_animations(*args):
         group_root_object = root_group_selection[0]
 
         await apply_animation(root_node_of_imported,group_root_object)
-        await create_track_and_editor_clip(file_name_without_extension,group_root_object,track_id,facially_animated_objects)
+        await create_track_and_editor_clip(file_name_without_extension,group_root_object,track_id)
         track_id +=1
 
-        await remove_keyframes(root_group_selection[0],None) # Remove keyframes from the body
-        await remove_keyframes(graphics_group_selection[0],facial_animation_attributes) # Remove keyframes from the face
-
+        await remove_keyframes(root_group_selection[0],False) # Remove keyframes from the body
+        await remove_keyframes(facial_animation_target_selection[0],True) # Remove keyframes from the face
+        await set_all_blendshapes_to_zero(facial_animation_target_selection[0])
         cmds.delete(root_node_of_imported)
 
 def on_button_click(*args):
@@ -487,9 +504,9 @@ cmds.textField('user_selected_root_joint_textField', editable=False)
 cmds.button(label='Select Character Root Joint', command=get_selected_root_joint_and_set_text_field)
 
 cmds.text(label='')
-cmds.text(label='Select geo group of your character :')
+cmds.text(label='Select target object to apply facial animation :')
 cmds.textField('user_selected_graphics_group_text_field', editable=False)
-cmds.button(label='Select Geo Group', command=get_graphics_root_group_and_set_text_field)
+cmds.button(label='Select Facial Animation Target', command=get_graphics_root_group_and_set_text_field)
 
 
 cmds.text(label='')
