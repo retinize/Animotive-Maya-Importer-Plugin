@@ -100,10 +100,10 @@ def set_keyframes_from_json(*args):
                     try:
                         cmds.setKeyframe(targetBlendShape, time=frame, value=bs_value)
                     except:
-                        cmds.confirmDialog(title='Error', message="There's no node with the name '"+targetBlendShape+"' please select another object and try again ", button='OK')
+                        cmds.confirmDialog(title='Message', message="There's no node with the name '"+targetBlendShape+"' please select another object and try again ", button='OK')
                         is_failed=True
     if not is_failed:    
-        cmds.confirmDialog(title='Error', message=" Success ! ", button='OK')
+        cmds.confirmDialog(title='Message', message=" Success ! ", button='OK')
 
                                       
                 
