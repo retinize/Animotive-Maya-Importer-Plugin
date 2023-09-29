@@ -6,8 +6,6 @@ import os
 import xml.etree.ElementTree as ET
 import json
 
-
-
 fbx_files = None
 import_directory = None
 root_group_selection = None
@@ -15,8 +13,7 @@ facial_animation_target_selection =None
 root_bone_selection = None
 created_parent_constraints = []
 last_composition_name = ""
-
-
+blendshape_node = None
 # ---- Beginning of Body Retargeting ----
 
 def delete_parent_constraints_recursive(obj):
@@ -24,7 +21,8 @@ def delete_parent_constraints_recursive(obj):
     if descendents:
         cmds.delete(descendents)
 
-async def apply_animation(animated_root,target_root):
+async def apply_body_animation(animated_root,target_root):
+    print("Applying body animation")
     if not target_root:
         cmds.confirmDialog(title='Error', message='Please select a root of the target where you want the animation to be applied.', button='OK')
         return
@@ -34,31 +32,42 @@ async def apply_animation(animated_root,target_root):
     if not root_group_selection:
         cmds.confirmDialog(title='Error', message='Please select a root bone joint of the target', button='OK')
         return
-    delete_parent_constraints_recursive(target_root)
-    cmds.currentTime(0, edit=True)
 
-    animated_children = cmds.listRelatives(animated_root, allDescendents=True, type='transform', path=True)
-    animated_children.append(animated_root)
-    target_children = cmds.listRelatives(target_root, allDescendents=True, type='joint', path=True)
-    target_children.append(target_root)
+    result=None
 
-    #reset_rotations(animated_children)
-    create_parent_constraint(animated_children, target_children)
-    clip_duration=0
-    
-    for child in animated_children:
-        key_times = cmds.keyframe(child, q=True)
-        if key_times is not None and is_list_zero(key_times)==False:
-            clip_duration = key_times
-            break
+    try:
+        delete_parent_constraints_recursive(target_root)
+        cmds.currentTime(0, edit=True)
 
-    cmds.playbackOptions(edit=True, animationStartTime=0)
-    cmds.playbackOptions(edit=True, animationEndTime=clip_duration[-1])
-    min_time = cmds.playbackOptions(edit=True, minTime=0)
-    max_time = cmds.playbackOptions(edit=True, maxTime=clip_duration[-1])
+        animated_children = cmds.listRelatives(animated_root, allDescendents=True, type='transform', path=True)
+        animated_children.append(animated_root)
+        target_children = cmds.listRelatives(target_root, allDescendents=True, type='joint', path=True)
+        target_children.append(target_root)
 
-    cmds.bakeResults(target_children, t=(min_time, max_time), simulation=True)
-    delete_parent_constraint()
+        # reset_rotations(animated_children)
+        create_parent_constraint(animated_children, target_children)
+        clip_duration = 0
+
+        for child in animated_children:
+            key_times = cmds.keyframe(child, q=True)
+            if key_times is not None and is_list_zero(key_times) == False:
+                clip_duration = key_times
+                break
+
+        cmds.playbackOptions(edit=True, animationStartTime=0)
+        cmds.playbackOptions(edit=True, animationEndTime=clip_duration[-1])
+        min_time = cmds.playbackOptions(edit=True, minTime=0)
+        max_time = cmds.playbackOptions(edit=True, maxTime=clip_duration[-1])
+
+        cmds.bakeResults(target_children, t=(min_time, max_time), simulation=True)
+        delete_parent_constraint()
+        result = True #Successfull operation
+    except RuntimeError as e:
+        print("An exception was thrown : ",e)#Failed op
+        result = False
+
+    return result
+
 
 def reset_rotations(object_list):
     for obj in object_list:
@@ -106,6 +115,19 @@ def delete_parent_constraint():
 
 # ---- Beginning of Facial Retargeting ----
 
+
+def get_blendshape_weight_attributes(p_blendshape_node):
+    weight_attrs = []
+
+    num_weights = cmds.blendShape(p_blendshape_node, query=True, weightCount=True)
+
+    for i in range(num_weights):
+        weight_attr = "{}.weight[{}]".format(p_blendshape_node, i)
+        weight_attrs.append(weight_attr)
+
+    return weight_attrs
+
+
 def get_graphics_root_group_and_set_text_field(*args):
     global facial_animation_target_selection
     facial_animation_target_selection = cmds.ls(selection=True, type='transform')
@@ -116,19 +138,6 @@ def get_graphics_root_group_and_set_text_field(*args):
         cmds.confirmDialog(title='Error', message="Please select target object to apply facial animation", button='OK')
     else:
         cmds.textField('user_selected_graphics_group_text_field', edit=True, text=facial_animation_target_selection[0])
-
-
-#
-# def get_blendshape_node_from_geo(graphic_object):
-#     nodes = []
-#
-#     history = cmds.listHistory(graphic_object)
-#     for node in history:
-#         if cmds.nodeType(node) == 'blendShape':
-#             nodes.append(node)
-#
-#     return (nodes)
-
 
 def set_playback_speed(facial_animation_clip_data):
     facial_animation_frames = facial_animation_clip_data['facialAnimationFrames']
@@ -141,7 +150,7 @@ def set_playback_speed(facial_animation_clip_data):
 
 
 def set_keyframes_from_json(path_of_file_to_load,name):
-    print("NAMES : ",names)
+
     if facial_animation_target_selection is None:
         print("Target object was not selected !")
         return
@@ -185,7 +194,7 @@ def set_keyframes_from_json(path_of_file_to_load,name):
                 try:
                     cmds.setKeyframe(targetBlendShape, time=frame, value=bs_value)
                 except:
-                    # cmds.confirmDialog(title='Error', message="There's no node with the name '"+targetBlendShape+"' please select another object and try again ", button='OK')
+                    #cmds.confirmDialog(title='Error', message="There's no node with the name '"+targetBlendShape+"' please select another object and try again ", button='OK')
                     is_failed = True
                     break
 
@@ -200,30 +209,38 @@ def set_keyframes_from_json(path_of_file_to_load,name):
     return result # if it's not failed than it was a successful operation
 
 async def apply_given_json_file(full_json_path):
-    print("Starting applying facial animation")
-    result = get_blendshape_node(facial_animation_target_selection[0])
-    print(result)
-    if result is None:
+    print("Applying facial animation..")
+
+    if blendshape_node is None:
         print("FAILED : Selected object doesn't have shape to write animation to ..")
         return False
-    return set_keyframes_from_json(full_json_path,result)
+
+    result= set_keyframes_from_json(full_json_path, blendshape_node)
+
+    if not result:
+        print("json import failed ! Make sure you have related json file for your animation exported from Animotive !")
+    else:
+        print("SUCCESS")
+
+
+    return result
 
 
 def get_blendshape_node(shapeNode):
-    print("shape : ",shapeNode)
     history = cmds.listHistory(shapeNode)
     blendshapes = cmds.ls(history, type='blendShape')
     return blendshapes[0] if blendshapes else None
 
-async def delete_blendshape_keyframes(transformNode):
-    shapes = cmds.listRelatives(transformNode, shapes=True)
+async def delete_blendshape_keyframes(transform_node):
+    shapes = cmds.listRelatives(transform_node, shapes=True)
     if not shapes:
-        print("No shape node found for", transformNode)
+        print("No shape node found for", transform_node)
         return
 
-    blendshapeNode = getBlendShapeNode(shapes[0])
+    blendshapeNode = get_blendshape_node(shapes[0])
+
     if not blendshapeNode:
-        print("No blendshape node found for", transformNode)
+        print("No blendshape node found for", transform_node)
         return
 
 
@@ -233,18 +250,16 @@ async def delete_blendshape_keyframes(transformNode):
         if cmds.keyframe(weightAttr, query=True, keyframeCount=True) > 0:
             cmds.cutKey(weightAttr)
 
-
-
-async def set_all_blendshapes_to_zero(transformNode):
-
-    shapes = cmds.listRelatives(transformNode, shapes=True)
+async def set_all_blendshapes_to_zero(transform_node):
+    shapes = cmds.listRelatives(transform_node, shapes=True)
     if not shapes:
-        print("No shape node found for", transformNode)
+        print("No shape node found for", transform_node)
         return
 
-    blendshapeNode = getBlendShapeNode(shapes[0])
+    blendshapeNode = get_blendshape_node(shapes[0])
+
     if not blendshapeNode:
-        print("No blendshape node found for", transformNode)
+        print("No blendshape node found for", transform_node)
         return
 
     numWeights = cmds.blendShape(blendshapeNode, query=True, weightCount=True)
@@ -252,13 +267,7 @@ async def set_all_blendshapes_to_zero(transformNode):
         weightAttr = "{}.weight[{}]".format(blendshapeNode, i)
         cmds.setAttr(weightAttr, 0)
 
-
-
-
 # ---- End of Facial Retargeting ----
-
-
-
 
 def load_fbx_plugin():
     plugin_name = "fbxmaya"
@@ -328,6 +337,7 @@ def has_keyframes(node_name):
             return True
     return False
 
+
 def create_time_editor_if_doesnt_exists():
     try:
         cmds.workspaceControl('Control')
@@ -339,18 +349,19 @@ def create_time_editor_if_doesnt_exists():
             print("Time Editor already exists")
 
 async def create_track_and_editor_clip(clip_name,target_root,track_id):
-    all_children = cmds.listRelatives(target_root, allDescendents=True, type='joint', path=True)
+    cmds.currentTime(0, edit=True)
+    all_children = cmds.listRelatives(target_root, allDescendents=True, type='joint', path=True) or []
 
     if len(all_children)==0:
         print("No object was found")
         return
 
     all_children_jointed = ";".join(all_children)
-       
-    source_id = cmds.timeEditorAnimSource(clip_name,ao= all_children_jointed, addRelatedKG=True, removeSceneAnimation=True, includeRoot=True, recursively=True)
-    created_track_id=cmds.timeEditorTracks(path=last_composition_name,addTrack=-1,e=1)
 
-    cmds.timeEditorClip(clip_name,track=last_composition_name+"|track"+str(track_id), animSource=source_id, startTime=1) 
+    source_id = cmds.timeEditorAnimSource(clip_name, ao=all_children_jointed, addRelatedKG=True,removeSceneAnimation=True, includeRoot=True, recursively=True)
+    created_track_id = cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1)
+
+    cmds.timeEditorClip(clip_name, track=last_composition_name + "|track" + str(track_id), animSource=source_id,startTime=1)
     cmds.timeEditorTracks(path=last_composition_name, trackIndex=created_track_id, edit=True, trackMuted=True)
 
 def legalize_string(name):
@@ -426,33 +437,30 @@ async def import_animations(*args):
     if not cmds.pluginInfo("fbxmaya", q=True, loaded=True):
         cmds.loadPlugin("fbxmaya")
 
+    global blendshape_node
+    blendshape_node = get_blendshape_node(facial_animation_target_selection[0])
+
+
     load_fbx_plugin()
     create_time_editor_if_doesnt_exists()
 
     track_id=1
     create_composition()
-    await set_all_blendshapes_to_zero(facial_animation_target_selection[0])
-    for fbx_file_name in fbx_files:
+    # await set_all_blendshapes_to_zero(facial_animation_target_selection[0])
 
+    for fbx_file_name in fbx_files:
         parts = fbx_file_name.split('_')
         scene_group_take_name_from_fbx = '_'.join(parts[:4])
 
         connected_json_file = [json_file for json_file in json_files if json_file.startswith(scene_group_take_name_from_fbx)]
 
-
         await remove_keyframes(root_group_selection[0],False) # Remove keyframes from the body
         await remove_keyframes(facial_animation_target_selection[0], True)  # Remove keyframes from the face
-
 
         if connected_json_file:
             connected_json_file = connected_json_file[0]
             full_json_path = os.path.join(import_directory,connected_json_file)
-            json_operation_result = await apply_given_json_file(full_json_path)
-            print(json_operation_result)
-            if not json_operation_result:
-                print("json import failed ! Make sure you have related json file for your animation exported from Animotive !")
-            else:
-                print("SUCCESS")
+            await apply_given_json_file(full_json_path)
 
         full_path = os.path.join(import_directory,fbx_file_name)
         file_name_without_extension = os.path.splitext(fbx_file_name)[0]
@@ -468,13 +476,13 @@ async def import_animations(*args):
         root_node_of_imported = nodes[1]
         group_root_object = root_group_selection[0]
 
-        await apply_animation(root_node_of_imported,group_root_object)
+        await apply_body_animation(root_node_of_imported,group_root_object)
         await create_track_and_editor_clip(file_name_without_extension,group_root_object,track_id)
         track_id +=1
 
         await remove_keyframes(root_group_selection[0],False) # Remove keyframes from the body
         await remove_keyframes(facial_animation_target_selection[0],True) # Remove keyframes from the face
-        await set_all_blendshapes_to_zero(facial_animation_target_selection[0])
+        # await set_all_blendshapes_to_zero(facial_animation_target_selection[0])
         cmds.delete(root_node_of_imported)
 
 def on_button_click(*args):
