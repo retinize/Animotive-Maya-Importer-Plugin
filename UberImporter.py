@@ -48,20 +48,23 @@ async def apply_body_animation(animated_root,target_root):
 
         # reset_rotations(animated_children)
         create_parent_constraint(animated_children, target_children)
-        clip_duration = 0
+        frame_count = 0
 
         for child in animated_children:
             key_times = cmds.keyframe(child, q=True)
             if key_times is not None and is_list_zero(key_times) == False:
-                clip_duration = key_times
+                first_frame = min(key_times)
+                last_frame = max(key_times)
+
+                frame_count = int(last_frame - first_frame + 1)
                 break
+        print("BODY FRAME COUNT : ",frame_count)
+        cmds.playbackOptions(edit=True, animationStartTime=0,framesPerSecond=60)
+        cmds.playbackOptions(edit=True, animationEndTime=frame_count,framesPerSecond=60)
+        cmds.playbackOptions(edit=True, minTime=0,framesPerSecond=60)
+        cmds.playbackOptions(edit=True, maxTime=frame_count,framesPerSecond=60)
 
-        cmds.playbackOptions(edit=True, animationStartTime=0)
-        cmds.playbackOptions(edit=True, animationEndTime=clip_duration[-1])
-        min_time = cmds.playbackOptions(edit=True, minTime=0)
-        max_time = cmds.playbackOptions(edit=True, maxTime=clip_duration[-1])
-
-        cmds.bakeResults(target_children, t=(min_time, max_time), simulation=True)
+        cmds.bakeResults(target_children, t=(first_frame, last_frame), simulation=True,sampleBy=1)
         delete_parent_constraint()
         result = True #Successfull operation
     except RuntimeError as e:
@@ -161,11 +164,12 @@ def get_graphics_root_group_and_set_text_field(*args):
 def set_playback_speed(facial_animation_clip_data):
     facial_animation_frames = facial_animation_clip_data['facialAnimationFrames']
     frame_count = len(facial_animation_frames)
+    print("FACE ANIM COUNT : ",frame_count)
     cmds.currentUnit(time='ntscf')
-    cmds.playbackOptions(edit=True, animationStartTime=0)
-    cmds.playbackOptions(edit=True, animationEndTime=frame_count)
-    cmds.playbackOptions(edit=True, minTime=0)
-    cmds.playbackOptions(edit=True, maxTime=frame_count)
+    cmds.playbackOptions(edit=True, animationStartTime=0,framesPerSecond=60)
+    cmds.playbackOptions(edit=True, animationEndTime=frame_count,framesPerSecond=60)
+    cmds.playbackOptions(edit=True, minTime=0,framesPerSecond=60)
+    cmds.playbackOptions(edit=True, maxTime=frame_count,framesPerSecond=60)
 
 
 def set_keyframes_from_json(path_of_file_to_load,name):
@@ -182,6 +186,7 @@ def set_keyframes_from_json(path_of_file_to_load,name):
     json_file = open(path_of_file_to_load, 'r')
 
     facial_animation_clip_data = json.load(json_file)
+    time_delta = facial_animation_clip_data["fixedDeltaTimeBetweenKeyFrames"]
     set_playback_speed(facial_animation_clip_data)
 
     character_geos = facial_animation_clip_data['characterGeos']
@@ -192,6 +197,7 @@ def set_keyframes_from_json(path_of_file_to_load,name):
 
     for frame in range(0, len(facial_animation_frames)):
         blendshapes_per_frame = facial_animation_frames[frame]
+
         if is_failed:
             break
         for blendshapeUsed in blendshapes_per_frame["blendShapesUsed"]:
@@ -222,7 +228,6 @@ def set_keyframes_from_json(path_of_file_to_load,name):
     #    cmds.confirmDialog(title='Error', message=" Success ! ", button='OK')
 
     result = is_failed==False
-    print("IS FAILED :",is_failed)
     return result # if it's not failed than it was a successful operation
 
 async def apply_given_json_file(full_json_path):
@@ -241,7 +246,6 @@ async def apply_given_json_file(full_json_path):
 
 
     return result
-
 
 def get_blendshape_node(shapeNode):
     history = cmds.listHistory(shapeNode)
@@ -378,12 +382,12 @@ async def create_track_and_editor_clip(clip_name, target_root,facial_anim_result
 
     if all_children:
         all_children_jointed = ";".join(all_children)
-        joint_source_id = cmds.timeEditorAnimSource(clip_name, ao=all_children_jointed, addRelatedKG=True, removeSceneAnimation=True, includeRoot=True, recursively=True)
+        joint_source_id = cmds.timeEditorAnimSource(clip_name, ao=all_children_jointed,calculateTiming=True, addRelatedKG=True, removeSceneAnimation=True, includeRoot=True, recursively=True)
 
     facial_anim_source_id=-1
     if facial_anim_result:
         anim_source_name = clip_name+"_FacialAnimSource_"
-        facial_anim_source_id = cmds.timeEditorAnimSource(anim_source_name, ao=blendshape_node, addRelatedKG=True, removeSceneAnimation=True,includeRoot=True, recursively=True,type=["animCurveTL", "animCurveTA", "animCurveTT","animCurveTU"])
+        facial_anim_source_id = cmds.timeEditorAnimSource(anim_source_name,calculateTiming=True, ao=blendshape_node, addRelatedKG=True, removeSceneAnimation=True,includeRoot=True,recursively=True,type=["animCurveTL", "animCurveTA", "animCurveTT","animCurveTU"])
 
     return [joint_source_id,facial_anim_source_id]
 
@@ -493,7 +497,7 @@ async def import_animations(*args):
     create_composition()
 
     body_and_facial_animation_sources = []
-
+    cmds.currentUnit(time='ntscf') # 60 frames per second
     for fbx_file_name in fbx_files:
         await remove_keyframes(root_group_selection[0], False)  # Remove keyframes from the body
         await remove_keyframes(facial_animation_target_selection[0], True)  # Remove keyframes from the face
