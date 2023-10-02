@@ -5,6 +5,7 @@ import re
 import os
 import xml.etree.ElementTree as ET
 import json
+import time
 
 fbx_files = None
 import_directory = None
@@ -15,6 +16,7 @@ created_parent_constraints = []
 last_composition_name = ""
 blendshape_node = None
 # ---- Beginning of Body Retargeting ----
+
 
 def delete_parent_constraints_recursive(obj):
     descendents = cmds.listRelatives(obj, allDescendents=True, fullPath=True,type='parentConstraint') or []
@@ -113,7 +115,46 @@ def delete_parent_constraint():
 
 # ---- End of Body Retargeting ----
 
+def mute_all_tracks_in_composition(composition_name):
+    if not cmds.objExists(composition_name):
+        print(f"Composition {composition_name} does not exist!")
+        return
+
+    tracks = cmds.timeEditorTracks(composition_name, q=True, allTracks=True)
+
+    if not tracks:
+        print(f"No tracks found in {composition_name}")
+        return
+
+    for t in tracks:
+        index = t.split(":")[1]
+        cmds.timeEditorTracks(path=composition_name,trackIndex=int(index), edit=True, trackMuted=True)
+
+
+def generate_unique_code(counter, prefix=""):
+    current_time = int(time.time() * 1000)  # Current time in milliseconds
+    unique_code = f"{current_time}_{counter}"
+    counter += 1
+    return f"{prefix}{unique_code}"
+
+
+def get_blendshape_keyframes(blendshape_node):
+    # Get all the target weights/attributes of the blendshape node
+    target_weights = get_blendshape_weight_attributes(blendshape_node)
+
+    keyframes = set()  # Using a set to ensure unique values
+
+    # Loop through each target weight and get its keyframes
+    for weight in target_weights:
+        keys = cmds.keyframe(weight, query=True)
+        if keys:
+            keyframes.update(keys)
+
+    return sorted(keyframes)
+
+
 # ---- Beginning of Facial Retargeting ----
+
 
 
 def get_blendshape_weight_attributes(p_blendshape_node):
@@ -163,7 +204,6 @@ def set_keyframes_from_json(path_of_file_to_load,name):
     json_file = open(path_of_file_to_load, 'r')
 
     facial_animation_clip_data = json.load(json_file)
-
     set_playback_speed(facial_animation_clip_data)
 
     character_geos = facial_animation_clip_data['characterGeos']
@@ -190,14 +230,13 @@ def set_keyframes_from_json(path_of_file_to_load,name):
 
             targetBlendShape = name + "." + bs_name
             if not is_failed:
-
                 try:
                     cmds.setKeyframe(targetBlendShape, time=frame, value=bs_value)
-                except:
+                except Exception as e:
                     #cmds.confirmDialog(title='Error', message="There's no node with the name '"+targetBlendShape+"' please select another object and try again ", button='OK')
+                    print("Exception ! : ",e)
                     is_failed = True
                     break
-
             else:
                 break
 
@@ -205,7 +244,7 @@ def set_keyframes_from_json(path_of_file_to_load,name):
     #    cmds.confirmDialog(title='Error', message=" Success ! ", button='OK')
 
     result = is_failed==False
-
+    print("IS FAILED :",is_failed)
     return result # if it's not failed than it was a successful operation
 
 async def apply_given_json_file(full_json_path):
@@ -248,6 +287,7 @@ async def delete_blendshape_keyframes(transform_node):
     for i in range(numWeights):
         weightAttr = "{}.weight[{}]".format(blendshapeNode, i)
         if cmds.keyframe(weightAttr, query=True, keyframeCount=True) > 0:
+            print("DELETING ! ",weightAttr)
             cmds.cutKey(weightAttr)
 
 async def set_all_blendshapes_to_zero(transform_node):
@@ -348,21 +388,45 @@ def create_time_editor_if_doesnt_exists():
         else:
             print("Time Editor already exists")
 
-async def create_track_and_editor_clip(clip_name,target_root,track_id):
+
+async def create_track_and_editor_clip(clip_name, target_root,track_id,facial_anim_result):
     cmds.currentTime(0, edit=True)
+
     all_children = cmds.listRelatives(target_root, allDescendents=True, type='joint', path=True) or []
 
-    if len(all_children)==0:
-        print("No object was found")
+    if not all_children:
+        print("No object found to add time editor..")
         return
 
-    all_children_jointed = ";".join(all_children)
+    if all_children:
+        track_id+=1
+        cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1,)
+        all_children_jointed = ";".join(all_children)
 
-    source_id = cmds.timeEditorAnimSource(clip_name, ao=all_children_jointed, addRelatedKG=True,removeSceneAnimation=True, includeRoot=True, recursively=True)
-    created_track_id = cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1)
+        joint_source_id = cmds.timeEditorAnimSource(clip_name, ao=all_children_jointed, addRelatedKG=True, removeSceneAnimation=True, includeRoot=True, recursively=True)
+        track_name = last_composition_name + "|track" + str(track_id)
 
-    cmds.timeEditorClip(clip_name, track=last_composition_name + "|track" + str(track_id), animSource=source_id,startTime=1)
-    cmds.timeEditorTracks(path=last_composition_name, trackIndex=created_track_id, edit=True, trackMuted=True)
+        cmds.timeEditorClip(clip_name, track=track_name, animSource=joint_source_id, startTime=0)
+
+    if facial_anim_result:
+        track_id+=1
+        cmds.timeEditorTracks(path=last_composition_name,addTrack=-1, e=1)
+        anim_source_name = clip_name+"_FacialAnimSource_"+str(track_id)
+        code = generate_unique_code(track_id,anim_source_name)
+
+        key_times = get_blendshape_keyframes(blendshape_node)
+        print(len(key_times))
+        dur = int(key_times[-1] * 2)
+        print("DURATION : ",dur)
+        facial_anim_source_id = cmds.timeEditorAnimSource(code, ao=blendshape_node, addRelatedKG=True, removeSceneAnimation=True,includeRoot=True, recursively=True,type=["animCurveTL", "animCurveTA", "animCurveTT","animCurveTU"])
+        track_name = last_composition_name + "|track" + str(track_id)
+
+        cmds.timeEditorClip(clip_name + "_Facial", track=track_name,animSource=facial_anim_source_id, startTime=0, rootClipId=-1, duration=dur)
+
+
+
+    return track_id
+
 
 def legalize_string(name):
     legal_name = ''.join(ch if ch.isalnum() else '_' for ch in name)
@@ -383,6 +447,7 @@ async def remove_keyframes(root_object,should_remove_blendshapes):
         for current_object in objects:
             cmds.cutKey(current_object, clear=True)
     else:
+        print("DELETE BLENDSHAPE KEYFRAMES")
         await delete_blendshape_keyframes(root_object)
       
 async def import_single_fbx(full_path):
@@ -411,7 +476,10 @@ def browse_xml_file():
     if selected_file:
         return selected_file[0]
     return None
-    
+
+def add_attributes_to_layer(list_of_attributes,layer_name):
+    for full_attr_path in list_of_attributes:
+        cmds.animLayer(layer_name, edit=True, attribute=full_attr_path)
     
 async def import_animations(*args):
     if import_directory is None or not import_directory :
@@ -434,8 +502,6 @@ async def import_animations(*args):
         cmds.confirmDialog(title='Error', message='Please select target to apply facial animation to', button='OK')
         return
 
-    if not cmds.pluginInfo("fbxmaya", q=True, loaded=True):
-        cmds.loadPlugin("fbxmaya")
 
     global blendshape_node
     blendshape_node = get_blendshape_node(facial_animation_target_selection[0])
@@ -444,23 +510,25 @@ async def import_animations(*args):
     load_fbx_plugin()
     create_time_editor_if_doesnt_exists()
 
-    track_id=1
+    track_id=0
     create_composition()
-    # await set_all_blendshapes_to_zero(facial_animation_target_selection[0])
+    anim_layer= 0
+    for idx,fbx_file_name in enumerate(fbx_files):
+        await remove_keyframes(root_group_selection[0], False)  # Remove keyframes from the body
+        await remove_keyframes(facial_animation_target_selection[0], True)  # Remove keyframes from the face
 
-    for fbx_file_name in fbx_files:
         parts = fbx_file_name.split('_')
         scene_group_take_name_from_fbx = '_'.join(parts[:4])
 
         connected_json_file = [json_file for json_file in json_files if json_file.startswith(scene_group_take_name_from_fbx)]
 
-        await remove_keyframes(root_group_selection[0],False) # Remove keyframes from the body
-        await remove_keyframes(facial_animation_target_selection[0], True)  # Remove keyframes from the face
-
+        facial_anim_result=False
+        print("INDEX : ",idx)
         if connected_json_file:
             connected_json_file = connected_json_file[0]
             full_json_path = os.path.join(import_directory,connected_json_file)
-            await apply_given_json_file(full_json_path)
+
+            facial_anim_result = await apply_given_json_file(full_json_path)
 
         full_path = os.path.join(import_directory,fbx_file_name)
         file_name_without_extension = os.path.splitext(fbx_file_name)[0]
@@ -477,13 +545,17 @@ async def import_animations(*args):
         group_root_object = root_group_selection[0]
 
         await apply_body_animation(root_node_of_imported,group_root_object)
-        await create_track_and_editor_clip(file_name_without_extension,group_root_object,track_id)
-        track_id +=1
 
+        track_id = await create_track_and_editor_clip(file_name_without_extension,group_root_object,track_id,facial_anim_result)
+
+        mute_all_tracks_in_composition(last_composition_name)
         await remove_keyframes(root_group_selection[0],False) # Remove keyframes from the body
         await remove_keyframes(facial_animation_target_selection[0],True) # Remove keyframes from the face
+
+
         # await set_all_blendshapes_to_zero(facial_animation_target_selection[0])
         cmds.delete(root_node_of_imported)
+        anim_layer+=1
 
 def on_button_click(*args):
     asyncio.run(import_animations())
