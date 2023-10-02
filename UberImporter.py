@@ -131,28 +131,6 @@ def mute_all_tracks_in_composition(composition_name):
         cmds.timeEditorTracks(path=composition_name,trackIndex=int(index), edit=True, trackMuted=True)
 
 
-def generate_unique_code(counter, prefix=""):
-    current_time = int(time.time() * 1000)  # Current time in milliseconds
-    unique_code = f"{current_time}_{counter}"
-    counter += 1
-    return f"{prefix}{unique_code}"
-
-
-def get_blendshape_keyframes(blendshape_node):
-    # Get all the target weights/attributes of the blendshape node
-    target_weights = get_blendshape_weight_attributes(blendshape_node)
-
-    keyframes = set()  # Using a set to ensure unique values
-
-    # Loop through each target weight and get its keyframes
-    for weight in target_weights:
-        keys = cmds.keyframe(weight, query=True)
-        if keys:
-            keyframes.update(keys)
-
-    return sorted(keyframes)
-
-
 # ---- Beginning of Facial Retargeting ----
 
 
@@ -287,7 +265,6 @@ async def delete_blendshape_keyframes(transform_node):
     for i in range(numWeights):
         weightAttr = "{}.weight[{}]".format(blendshapeNode, i)
         if cmds.keyframe(weightAttr, query=True, keyframeCount=True) > 0:
-            print("DELETING ! ",weightAttr)
             cmds.cutKey(weightAttr)
 
 async def set_all_blendshapes_to_zero(transform_node):
@@ -389,7 +366,7 @@ def create_time_editor_if_doesnt_exists():
             print("Time Editor already exists")
 
 
-async def create_track_and_editor_clip(clip_name, target_root,track_id,facial_anim_result):
+async def create_track_and_editor_clip(clip_name, target_root,facial_anim_result):
     cmds.currentTime(0, edit=True)
 
     all_children = cmds.listRelatives(target_root, allDescendents=True, type='joint', path=True) or []
@@ -397,36 +374,39 @@ async def create_track_and_editor_clip(clip_name, target_root,track_id,facial_an
     if not all_children:
         print("No object found to add time editor..")
         return
+    joint_source_id=-1
 
     if all_children:
-        track_id+=1
-        cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1,)
         all_children_jointed = ";".join(all_children)
-
         joint_source_id = cmds.timeEditorAnimSource(clip_name, ao=all_children_jointed, addRelatedKG=True, removeSceneAnimation=True, includeRoot=True, recursively=True)
-        track_name = last_composition_name + "|track" + str(track_id)
 
-        cmds.timeEditorClip(clip_name, track=track_name, animSource=joint_source_id, startTime=0)
-
+    facial_anim_source_id=-1
     if facial_anim_result:
-        track_id+=1
-        cmds.timeEditorTracks(path=last_composition_name,addTrack=-1, e=1)
-        anim_source_name = clip_name+"_FacialAnimSource_"+str(track_id)
-        code = generate_unique_code(track_id,anim_source_name)
+        anim_source_name = clip_name+"_FacialAnimSource_"
+        facial_anim_source_id = cmds.timeEditorAnimSource(anim_source_name, ao=blendshape_node, addRelatedKG=True, removeSceneAnimation=True,includeRoot=True, recursively=True,type=["animCurveTL", "animCurveTA", "animCurveTT","animCurveTU"])
 
-        key_times = get_blendshape_keyframes(blendshape_node)
-        print(len(key_times))
-        dur = int(key_times[-1] * 2)
-        print("DURATION : ",dur)
-        facial_anim_source_id = cmds.timeEditorAnimSource(code, ao=blendshape_node, addRelatedKG=True, removeSceneAnimation=True,includeRoot=True, recursively=True,type=["animCurveTL", "animCurveTA", "animCurveTT","animCurveTU"])
-        track_name = last_composition_name + "|track" + str(track_id)
-
-        cmds.timeEditorClip(clip_name + "_Facial", track=track_name,animSource=facial_anim_source_id, startTime=0, rootClipId=-1, duration=dur)
+    return [joint_source_id,facial_anim_source_id]
 
 
+def create_tracks_from_sources(tuple_array):
+    track_id=0
 
-    return track_id
+    for tuple in tuple_array:
+        joint_source_id = tuple[0]
+        facial_anim_source_id = tuple[1]
 
+        if joint_source_id!=-1:
+            cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1,)
+            track_id+=1
+            track_name = last_composition_name + "|track" + str(track_id)
+            cmds.timeEditorClip(joint_source_id, track=track_name, animSource=joint_source_id, startTime=0)
+
+        if facial_anim_source_id!=-1:
+            cmds.timeEditorTracks(path=last_composition_name,addTrack=-1, e=1)
+            track_id+=1
+            track_name = last_composition_name + "|track" + str(track_id)
+
+            cmds.timeEditorClip(joint_source_id+"_Facial", track=track_name,animSource=facial_anim_source_id, startTime=0, rootClipId=-1)
 
 def legalize_string(name):
     legal_name = ''.join(ch if ch.isalnum() else '_' for ch in name)
@@ -447,7 +427,6 @@ async def remove_keyframes(root_object,should_remove_blendshapes):
         for current_object in objects:
             cmds.cutKey(current_object, clear=True)
     else:
-        print("DELETE BLENDSHAPE KEYFRAMES")
         await delete_blendshape_keyframes(root_object)
       
 async def import_single_fbx(full_path):
@@ -512,8 +491,10 @@ async def import_animations(*args):
 
     track_id=0
     create_composition()
-    anim_layer= 0
-    for idx,fbx_file_name in enumerate(fbx_files):
+
+    body_and_facial_animation_sources = []
+
+    for fbx_file_name in fbx_files:
         await remove_keyframes(root_group_selection[0], False)  # Remove keyframes from the body
         await remove_keyframes(facial_animation_target_selection[0], True)  # Remove keyframes from the face
 
@@ -523,7 +504,7 @@ async def import_animations(*args):
         connected_json_file = [json_file for json_file in json_files if json_file.startswith(scene_group_take_name_from_fbx)]
 
         facial_anim_result=False
-        print("INDEX : ",idx)
+
         if connected_json_file:
             connected_json_file = connected_json_file[0]
             full_json_path = os.path.join(import_directory,connected_json_file)
@@ -546,16 +527,18 @@ async def import_animations(*args):
 
         await apply_body_animation(root_node_of_imported,group_root_object)
 
-        track_id = await create_track_and_editor_clip(file_name_without_extension,group_root_object,track_id,facial_anim_result)
+        source_ids= await create_track_and_editor_clip(file_name_without_extension,group_root_object,facial_anim_result)
+        body_and_facial_animation_sources.append(source_ids)
 
-        mute_all_tracks_in_composition(last_composition_name)
         await remove_keyframes(root_group_selection[0],False) # Remove keyframes from the body
         await remove_keyframes(facial_animation_target_selection[0],True) # Remove keyframes from the face
 
 
         # await set_all_blendshapes_to_zero(facial_animation_target_selection[0])
         cmds.delete(root_node_of_imported)
-        anim_layer+=1
+    create_tracks_from_sources(body_and_facial_animation_sources)
+    mute_all_tracks_in_composition(last_composition_name)
+
 
 def on_button_click(*args):
     asyncio.run(import_animations())
