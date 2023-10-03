@@ -439,18 +439,19 @@ async def import_single_fbx(full_path):
             
 def import_xml(*args):
     xml_file_full_path = browse_xml_file()
-    tree = ET.parse(xml_file_full_path)
-    root = tree.getroot()
+    if xml_file_full_path:
+        tree = ET.parse(xml_file_full_path)
+        root = tree.getroot()
 
-    for clip_item in root.findall(".//clipitem"):
-        file_node = clip_item.find("file")
+        for clip_item in root.findall(".//clipitem"):
+            file_node = clip_item.find("file")
 
-        file_name = file_node.find("name")
-        if file_name is not None:
-            file_full_path = file_name.text
-            file_name_without_extension = os.path.splitext(file_full_path)[0]
-            
-            print(file_name_without_extension)
+            file_name = file_node.find("name")
+            if file_name is not None:
+                file_full_path = file_name.text
+                file_name_without_extension = os.path.splitext(file_full_path)[0]
+
+                print(file_name_without_extension)
         
 def browse_xml_file():
     file_filter = "XML Files (*.xml)"
@@ -560,6 +561,11 @@ cmds.textField('user_selected_import_directory_textField', editable=False)
 cmds.button(label='Choose Import Directory', command=choose_import_directory_and_retrieve_files)
 
 cmds.text(label='')
+cmds.text(label='Select xml file :')
+cmds.textField('user_selected_xml_text_field', editable=False)
+cmds.button(label='Choose XML', command=import_xml)
+
+cmds.text(label='')
 cmds.text(label='Select the characters root group :')
 cmds.textField('user_selected_root_group_textField', editable=False)
 cmds.button(label='Select Target(Character) Root', command=get_selected_root_group_and_set_text_field)
@@ -576,10 +582,10 @@ cmds.textField('user_selected_graphics_group_text_field', editable=False)
 cmds.button(label='Select Facial Animation Target', command=get_graphics_root_group_and_set_text_field)
 
 
+
 cmds.text(label='')
 cmds.button(label='Import', command=on_button_click)
 
-#cmds.text(label='')
-#cmds.button(label='Choose XML', command=import_xml)
+
 
 cmds.showWindow(window)
