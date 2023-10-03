@@ -15,6 +15,32 @@ root_bone_selection = None
 created_parent_constraints = []
 last_composition_name = ""
 blendshape_node = None
+xml_data_list = []
+
+class XmlData:
+
+    file_name = ""
+    in_frame = -1
+    out_frame = -1
+    start_frame = -1
+    end_frame = -1
+
+    def __init__(self):
+        self.file_name = ""
+        self.in_frame = -1
+        self.out_frame = -1
+        self.start_frame = -1
+        self.end_frame = -1
+
+    def set_data(self,fileName,inFrame,outFrame,startFrame,endFrame):
+        self.file_name = fileName
+        self.in_frame = inFrame
+        self.out_frame=outFrame
+
+        self.start_frame = startFrame
+        self.end_frame=endFrame
+
+
 # ---- Beginning of Body Retargeting ----
 
 
@@ -58,7 +84,6 @@ async def apply_body_animation(animated_root,target_root):
 
                 frame_count = int(last_frame - first_frame + 1)
                 break
-        print("BODY FRAME COUNT : ",frame_count)
         cmds.playbackOptions(edit=True, animationStartTime=0,framesPerSecond=60)
         cmds.playbackOptions(edit=True, animationEndTime=frame_count,framesPerSecond=60)
         cmds.playbackOptions(edit=True, minTime=0,framesPerSecond=60)
@@ -164,7 +189,6 @@ def get_graphics_root_group_and_set_text_field(*args):
 def set_playback_speed(facial_animation_clip_data):
     facial_animation_frames = facial_animation_clip_data['facialAnimationFrames']
     frame_count = len(facial_animation_frames)
-    print("FACE ANIM COUNT : ",frame_count)
     cmds.currentUnit(time='ntscf')
     cmds.playbackOptions(edit=True, animationStartTime=0,framesPerSecond=60)
     cmds.playbackOptions(edit=True, animationEndTime=frame_count,framesPerSecond=60)
@@ -300,11 +324,12 @@ def choose_import_directory_and_retrieve_files(*args):
     global json_files
     global import_directory
     import_directory = browse_and_return_directory()
-    
-    fbx_files = collect_and_return_given_type_of_files_from_directory(import_directory,'.fbx')
-    json_files = collect_and_return_given_type_of_files_from_directory(import_directory,'.json')
 
-    cmds.textField('user_selected_import_directory_textField', edit=True,text=import_directory)
+    if import_directory:
+        fbx_files = collect_and_return_given_type_of_files_from_directory(import_directory,'.fbx')
+        json_files = collect_and_return_given_type_of_files_from_directory(import_directory,'.json')
+
+        cmds.textField('user_selected_import_directory_textField', edit=True,text=import_directory)
     
 
 
@@ -389,28 +414,42 @@ async def create_track_and_editor_clip(clip_name, target_root,facial_anim_result
         anim_source_name = clip_name+"_FacialAnimSource_"
         facial_anim_source_id = cmds.timeEditorAnimSource(anim_source_name,calculateTiming=True, ao=blendshape_node, addRelatedKG=True, removeSceneAnimation=True,includeRoot=True,recursively=True,type=["animCurveTL", "animCurveTA", "animCurveTT","animCurveTU"])
 
-    return [joint_source_id,facial_anim_source_id]
+    return [joint_source_id,facial_anim_source_id,clip_name]
 
 
-def create_tracks_from_sources(tuple_array):
+async def create_tracks_from_sources(tuple_array,connected_xml_datas):
     track_id=0
 
-    for tuple in tuple_array:
+    for idx,tuple in enumerate(tuple_array):
         joint_source_id = tuple[0]
         facial_anim_source_id = tuple[1]
+        clip_name = tuple[2]
 
+        if clip_name in connected_xml_datas:
+            value = connected_xml_datas[clip_name]
+            print(idx," :--: ",clip_name)
+            for xml_data in value:
+                #TODO: Duplicate clips and trim them here
+                print("XML DATA : ",xml_data)
+
+        # Create tracks and clips
         if joint_source_id!=-1:
-            cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1,)
             track_id+=1
-            track_name = last_composition_name + "|track" + str(track_id)
-            cmds.timeEditorClip(joint_source_id, track=track_name, animSource=joint_source_id, startTime=0)
+            await create_body_animation_track_and_clip(track_id,joint_source_id)
 
         if facial_anim_source_id!=-1:
-            cmds.timeEditorTracks(path=last_composition_name,addTrack=-1, e=1)
             track_id+=1
-            track_name = last_composition_name + "|track" + str(track_id)
+            await create_facial_animation_track_and_clip(track_id,facial_anim_source_id,joint_source_id)
 
-            cmds.timeEditorClip(joint_source_id+"_Facial", track=track_name,animSource=facial_anim_source_id, startTime=0, rootClipId=-1)
+async def create_facial_animation_track_and_clip(track_id,facial_anim_source_id,clip_name):
+    cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1)
+    track_name = last_composition_name + "|track" + str(track_id)
+    cmds.timeEditorClip(clip_name + "_Facial", track=track_name, animSource=facial_anim_source_id, rootClipId=-1,startTime=0)
+
+async def create_body_animation_track_and_clip(track_id,clip_name):
+    cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1, )
+    track_name = last_composition_name + "|track" + str(track_id)
+    cmds.timeEditorClip(clip_name, track=track_name, animSource=clip_name, startTime=0)
 
 def legalize_string(name):
     legal_name = ''.join(ch if ch.isalnum() else '_' for ch in name)
@@ -436,23 +475,35 @@ async def remove_keyframes(root_object,should_remove_blendshapes):
 async def import_single_fbx(full_path):
     cmds.FBXImport("-f",full_path,'-caller "FBXMayaTranslator" -importFormat "fbx"')
 
-            
 def import_xml(*args):
+    global xml_data_list
     xml_file_full_path = browse_xml_file()
     if xml_file_full_path:
+
+        cmds.textField('user_selected_xml_text_field', edit=True,text=xml_file_full_path)
+
         tree = ET.parse(xml_file_full_path)
         root = tree.getroot()
+        xml_data_list = []
 
-        for clip_item in root.findall(".//clipitem"):
-            file_node = clip_item.find("file")
+        clip_item = root.findall(".//clipitem")
 
-            file_name = file_node.find("name")
+        for clip_item in clip_item:
+            file_name = clip_item.find("name").text
             if file_name is not None:
-                file_full_path = file_name.text
+                file_full_path = file_name
                 file_name_without_extension = os.path.splitext(file_full_path)[0]
+                start_frame = clip_item.find("start").text
+                end_frame = clip_item.find("end").text
+                in_frame = clip_item.find("in").text
+                out_frame = clip_item.find("out").text
 
-                print(file_name_without_extension)
-        
+                xml_data = XmlData()
+                xml_data.__init__()
+                xml_data.set_data(file_name_without_extension,in_frame,out_frame,start_frame,end_frame)
+                xml_data_list.append(xml_data)
+
+
 def browse_xml_file():
     file_filter = "XML Files (*.xml)"
     selected_file = cmds.fileDialog2(fileMode=1, fileFilter=file_filter)
@@ -469,6 +520,11 @@ async def import_animations(*args):
     if import_directory is None or not import_directory :
         cmds.confirmDialog(title='Error', message='Please browse a import_directory to import FBX files from', button='OK')
         return
+
+    if len(xml_data_list)==0:
+        cmds.confirmDialog(title='Error', message='Please choose an XML file', button='OK')
+        return
+
 
     if fbx_files is None or len(fbx_files)==0:
         cmds.confirmDialog(title='Error', message='No FBX file found in the given import_directory', button='OK')
@@ -498,16 +554,26 @@ async def import_animations(*args):
     create_composition()
 
     body_and_facial_animation_sources = []
+    connected_xml_datas = {}
     cmds.currentUnit(time='ntscf') # 60 frames per second
+
     for fbx_file_name in fbx_files:
         await remove_keyframes(root_group_selection[0], False)  # Remove keyframes from the body
         await remove_keyframes(facial_animation_target_selection[0], True)  # Remove keyframes from the face
-
+        file_name_without_extension = os.path.splitext(fbx_file_name)[0]
         parts = fbx_file_name.split('_')
         scene_group_take_name_from_fbx = '_'.join(parts[:4])
+        print(fbx_file_name)
+        connected_xml_data = [xml_data for xml_data in xml_data_list if
+                              xml_data.file_name.startswith(file_name_without_extension)]
+
+        if not connected_xml_data:
+            print("WARNING ! : Couldn't find any usable data in XML for %s clip won't be cut !",file_name_without_extension)
+
+        else:
+            connected_xml_datas[file_name_without_extension] = connected_xml_data
 
         connected_json_file = [json_file for json_file in json_files if json_file.startswith(scene_group_take_name_from_fbx)]
-
         facial_anim_result=False
 
         if connected_json_file:
@@ -517,7 +583,7 @@ async def import_animations(*args):
             facial_anim_result = await apply_given_json_file(full_json_path)
 
         full_path = os.path.join(import_directory,fbx_file_name)
-        file_name_without_extension = os.path.splitext(fbx_file_name)[0]
+
 
         before_import_nodes = set(cmds.ls(dag=True, long=True))
         await import_single_fbx(os.path.join(import_directory,fbx_file_name))
@@ -525,12 +591,16 @@ async def import_animations(*args):
 
         imported_nodes = after_import_nodes - before_import_nodes
         imported_nodes = list(imported_nodes)
+
+        # TODO : if imported nodes is zero that means the same file is already in the scene.
+
         nodes = imported_nodes[0].split('|')
 
         root_node_of_imported = nodes[1]
         group_root_object = root_group_selection[0]
 
         await apply_body_animation(root_node_of_imported,group_root_object)
+
 
         source_ids= await create_track_and_editor_clip(file_name_without_extension,group_root_object,facial_anim_result)
         body_and_facial_animation_sources.append(source_ids)
@@ -541,7 +611,7 @@ async def import_animations(*args):
 
         # await set_all_blendshapes_to_zero(facial_animation_target_selection[0])
         cmds.delete(root_node_of_imported)
-    create_tracks_from_sources(body_and_facial_animation_sources)
+    await create_tracks_from_sources(body_and_facial_animation_sources,connected_xml_datas)
     mute_all_tracks_in_composition(last_composition_name)
 
 
