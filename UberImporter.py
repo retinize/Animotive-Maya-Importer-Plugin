@@ -425,31 +425,48 @@ async def create_tracks_from_sources(tuple_array,connected_xml_datas):
         facial_anim_source_id = tuple[1]
         clip_name = tuple[2]
 
+        xml_value = None
         if clip_name in connected_xml_datas:
-            value = connected_xml_datas[clip_name]
-            print(idx," :--: ",clip_name)
-            for xml_data in value:
-                #TODO: Duplicate clips and trim them here
-                print("XML DATA : ",xml_data)
+            xml_value = connected_xml_datas[clip_name]
 
-        # Create tracks and clips
         if joint_source_id!=-1:
             track_id+=1
-            await create_body_animation_track_and_clip(track_id,joint_source_id)
+            track_name = last_composition_name + "|track" + str(track_id)
+
+            if xml_value:
+                create_and_cut_clips_according_to_xml(xml_value,clip_name,track_name,joint_source_id,False)
+            else:
+                cmds.timeEditorClip(clip_name, track=track_name, animSource=anim_source_id, startTime=0)
 
         if facial_anim_source_id!=-1:
             track_id+=1
-            await create_facial_animation_track_and_clip(track_id,facial_anim_source_id,joint_source_id)
+            facial_clip_name=clip_name + "_Facial"
+            track_name = last_composition_name + "|track" + str(track_id)
 
-async def create_facial_animation_track_and_clip(track_id,facial_anim_source_id,clip_name):
+            if xml_value:
+                create_and_cut_clips_according_to_xml(xml_value,facial_clip_name,track_name,facial_anim_source_id,True)
+
+            else:
+                cmds.timeEditorClip(clip_name, track=track_name, animSource=facial_anim_source_id, rootClipId=-1,startTime=0)
+
+def create_and_cut_clips_according_to_xml(xml_data_array,clip_name,track_name,source_id,is_facial):
     cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1)
-    track_name = last_composition_name + "|track" + str(track_id)
-    cmds.timeEditorClip(clip_name + "_Facial", track=track_name, animSource=facial_anim_source_id, rootClipId=-1,startTime=0)
 
-async def create_body_animation_track_and_clip(track_id,clip_name):
-    cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1, )
-    track_name = last_composition_name + "|track" + str(track_id)
-    cmds.timeEditorClip(clip_name, track=track_name, animSource=clip_name, startTime=0)
+    xml_data = xml_data_array[0]
+    # for xml_data in xml_data_array:
+
+    in_frame = int(xml_data.in_frame)
+    out_frame = int(xml_data.out_frame)
+
+    if is_facial:
+        # face
+        id = cmds.timeEditorClip(clip_name,track=track_name,animSource=source_id)
+        cmds.timeEditorClip(clip_name,edit=True,clipId=id,trimStart=in_frame,trimEnd=out_frame,startTime=int(xml_data.start_frame))
+    else:
+        # body
+        id = cmds.timeEditorClip(clip_name,track=track_name,animSource=source_id)
+        cmds.timeEditorClip(clip_name,edit=True,clipId=id,trimStart=in_frame,trimEnd=out_frame,startTime=int(xml_data.start_frame))
+
 
 def legalize_string(name):
     legal_name = ''.join(ch if ch.isalnum() else '_' for ch in name)
@@ -563,7 +580,7 @@ async def import_animations(*args):
         file_name_without_extension = os.path.splitext(fbx_file_name)[0]
         parts = fbx_file_name.split('_')
         scene_group_take_name_from_fbx = '_'.join(parts[:4])
-        print(fbx_file_name)
+
         connected_xml_data = [xml_data for xml_data in xml_data_list if
                               xml_data.file_name.startswith(file_name_without_extension)]
 
@@ -613,6 +630,7 @@ async def import_animations(*args):
         cmds.delete(root_node_of_imported)
     await create_tracks_from_sources(body_and_facial_animation_sources,connected_xml_datas)
     mute_all_tracks_in_composition(last_composition_name)
+    cmds.refresh()
 
 
 def on_button_click(*args):
