@@ -452,20 +452,19 @@ async def create_tracks_from_sources(tuple_array,connected_xml_datas):
 def create_and_cut_clips_according_to_xml(xml_data_array,clip_name,track_name,source_id,is_facial):
     cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1)
 
-    xml_data = xml_data_array[0]
-    # for xml_data in xml_data_array:
+    # xml_data = xml_data_array[0]
+    for xml_data in xml_data_array:
+        in_frame = int(xml_data.in_frame)
+        out_frame = int(xml_data.out_frame)
 
-    in_frame = int(xml_data.in_frame)
-    out_frame = int(xml_data.out_frame)
-
-    if is_facial:
-        # face
-        id = cmds.timeEditorClip(clip_name,track=track_name,animSource=source_id)
-        cmds.timeEditorClip(clip_name,edit=True,clipId=id,trimStart=in_frame,trimEnd=out_frame,startTime=int(xml_data.start_frame))
-    else:
-        # body
-        id = cmds.timeEditorClip(clip_name,track=track_name,animSource=source_id)
-        cmds.timeEditorClip(clip_name,edit=True,clipId=id,trimStart=in_frame,trimEnd=out_frame,startTime=int(xml_data.start_frame))
+        if is_facial:
+            # face
+            id = cmds.timeEditorClip(clip_name,track=track_name,animSource=source_id)
+            cmds.timeEditorClip(clip_name,edit=True,clipId=id,trimStart=in_frame,trimEnd=out_frame,startTime=int(xml_data.start_frame))
+        else:
+            # body
+            id = cmds.timeEditorClip(clip_name,track=track_name,animSource=source_id)
+            cmds.timeEditorClip(clip_name,edit=True,clipId=id,trimStart=in_frame,trimEnd=out_frame,startTime=int(xml_data.start_frame))
 
 
 def legalize_string(name):
