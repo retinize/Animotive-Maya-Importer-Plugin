@@ -432,17 +432,18 @@ async def create_tracks_from_sources(tuple_array,connected_xml_datas):
         if joint_source_id!=-1:
             track_id+=1
             track_name = last_composition_name + "|track" + str(track_id)
-
+            cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1)
+            print(xml_value,clip_name)
             if xml_value:
                 create_and_cut_clips_according_to_xml(xml_value,clip_name,track_name,joint_source_id,False)
             else:
-                cmds.timeEditorClip(clip_name, track=track_name, animSource=anim_source_id, startTime=0)
+                cmds.timeEditorClip(clip_name, track=track_name, animSource=joint_source_id, startTime=0)
 
         if facial_anim_source_id!=-1:
             track_id+=1
             facial_clip_name=clip_name + "_Facial"
             track_name = last_composition_name + "|track" + str(track_id)
-
+            cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1)
             if xml_value:
                 create_and_cut_clips_according_to_xml(xml_value,facial_clip_name,track_name,facial_anim_source_id,True)
 
@@ -450,7 +451,7 @@ async def create_tracks_from_sources(tuple_array,connected_xml_datas):
                 cmds.timeEditorClip(clip_name, track=track_name, animSource=facial_anim_source_id, rootClipId=-1,startTime=0)
 
 def create_and_cut_clips_according_to_xml(xml_data_array,clip_name,track_name,source_id,is_facial):
-    cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1)
+
 
     # xml_data = xml_data_array[0]
     for xml_data in xml_data_array:
@@ -584,7 +585,7 @@ async def import_animations(*args):
                               xml_data.file_name.startswith(file_name_without_extension)]
 
         if not connected_xml_data:
-            print("WARNING ! : Couldn't find any usable data in XML for %s clip won't be cut !",file_name_without_extension)
+            print("WARNING ! : Couldn't find any usable data in XML for '%s' clip won't be cut !" % file_name_without_extension)
 
         else:
             connected_xml_datas[file_name_without_extension] = connected_xml_data
@@ -616,7 +617,6 @@ async def import_animations(*args):
         group_root_object = root_group_selection[0]
 
         await apply_body_animation(root_node_of_imported,group_root_object)
-
 
         source_ids= await create_track_and_editor_clip(file_name_without_extension,group_root_object,facial_anim_result)
         body_and_facial_animation_sources.append(source_ids)
