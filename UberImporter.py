@@ -609,24 +609,25 @@ async def import_animations(*args):
         imported_nodes = after_import_nodes - before_import_nodes
         imported_nodes = list(imported_nodes)
 
-        # TODO : if imported nodes is zero that means the same file is already in the scene.
-
         nodes = imported_nodes[0].split('|')
 
-        root_node_of_imported = nodes[1]
-        group_root_object = root_group_selection[0]
+        try:
+            root_node_of_imported = nodes[1]
+            group_root_object = root_group_selection[0]
 
-        await apply_body_animation(root_node_of_imported,group_root_object)
+            await apply_body_animation(root_node_of_imported, group_root_object)
 
-        source_ids= await create_track_and_editor_clip(file_name_without_extension,group_root_object,facial_anim_result)
-        body_and_facial_animation_sources.append(source_ids)
+            source_ids = await create_track_and_editor_clip(file_name_without_extension, group_root_object,
+                                                            facial_anim_result)
+            body_and_facial_animation_sources.append(source_ids)
 
-        await remove_keyframes(root_group_selection[0],False) # Remove keyframes from the body
-        await remove_keyframes(facial_animation_target_selection[0],True) # Remove keyframes from the face
+            await remove_keyframes(root_group_selection[0], False)  # Remove keyframes from the body
+            await remove_keyframes(facial_animation_target_selection[0], True)  # Remove keyframes from the face
+        except Exception as e:
+            print("An error occured : ",e)
+        finally:
+            cmds.delete(root_node_of_imported)
 
-
-        # await set_all_blendshapes_to_zero(facial_animation_target_selection[0])
-        cmds.delete(root_node_of_imported)
     await create_tracks_from_sources(body_and_facial_animation_sources,connected_xml_datas)
     mute_all_tracks_in_composition(last_composition_name)
     cmds.refresh()
