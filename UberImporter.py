@@ -448,7 +448,7 @@ async def create_tracks_from_sources(tuple_array,connected_xml_datas):
                 create_and_cut_clips_according_to_xml(xml_value,facial_clip_name,track_name,facial_anim_source_id,True)
 
             else:
-                cmds.timeEditorClip(clip_name, track=track_name, animSource=facial_anim_source_id, rootClipId=-1,startTime=0)
+                cmds.timeEditorClip(facial_clip_name, track=track_name, animSource=facial_anim_source_id, rootClipId=-1,startTime=0)
 
 def create_and_cut_clips_according_to_xml(xml_data_array,clip_name,track_name,source_id,is_facial):
 
