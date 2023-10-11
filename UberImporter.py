@@ -452,7 +452,6 @@ async def create_tracks_from_sources(tuple_array,connected_xml_datas):
 
 def create_and_cut_clips_according_to_xml(xml_data_array,clip_name,track_name,source_id,is_facial):
 
-
     # xml_data = xml_data_array[0]
     for xml_data in xml_data_array:
         in_frame = int(xml_data.in_frame)
@@ -489,9 +488,19 @@ async def remove_keyframes(root_object,should_remove_blendshapes):
     else:
         await delete_blendshape_keyframes(root_object)
       
-async def import_single_fbx(full_path):
-    cmds.FBXImport("-f",full_path,'-caller "FBXMayaTranslator" -importFormat "fbx"')
-
+async def import_single_fbx(full_path,namespace):
+    # cmds.FBXImport("-f",full_path,'-caller "FBXMayaTranslator" -importFormat "fbx" -ns "Test"')
+    cmds.file(full_path,
+              i=True,  # import
+              type="FBX",
+              iv=True,  # ignoreVersion
+              ra=True,  # referenceAssemblies
+              mnc=False,  # mergeNamespacesOnClash
+              namespace=namespace,
+              options="v=0;",
+              pr=True,  # preserveReferences
+              itr="combine"  # importTimeRange
+              )
 def import_xml(*args):
     global xml_data_list
     xml_file_full_path = browse_xml_file()
@@ -603,7 +612,7 @@ async def import_animations(*args):
 
 
         before_import_nodes = set(cmds.ls(dag=True, long=True))
-        await import_single_fbx(os.path.join(import_directory,fbx_file_name))
+        await import_single_fbx(os.path.join(import_directory,fbx_file_name),file_name_without_extension)
         after_import_nodes = set(cmds.ls(dag=True, long=True))
 
         imported_nodes = after_import_nodes - before_import_nodes
