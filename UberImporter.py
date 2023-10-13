@@ -464,11 +464,11 @@ def create_and_cut_clips_according_to_xml(xml_data_array,clip_name,track_name,so
         if is_facial:
             # face
             id = cmds.timeEditorClip(clip_name,track=track_name,animSource=source_id)
-            cmds.timeEditorClip(clip_name,edit=True,clipId=id,trimStart=in_frame+start_frame_in_timeline,trimEnd=out_frame,startTime=int(xml_data.start_frame))
+            cmds.timeEditorClip(clip_name,edit=True,clipId=id,trimStart=in_frame,trimEnd=out_frame,startTime=int(xml_data.start_frame))
         else:
             # body
             id = cmds.timeEditorClip(clip_name,track=track_name,animSource=source_id)
-            cmds.timeEditorClip(clip_name,edit=True,clipId=id,trimStart=in_frame+start_frame_in_timeline,trimEnd=out_frame,startTime=int(xml_data.start_frame))
+            cmds.timeEditorClip(clip_name,edit=True,clipId=id,trimStart=in_frame,trimEnd=out_frame,startTime=int(xml_data.start_frame))
 
 
 def legalize_string(name):
