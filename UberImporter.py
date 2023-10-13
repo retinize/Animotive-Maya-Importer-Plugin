@@ -16,6 +16,7 @@ created_parent_constraints = []
 last_composition_name = ""
 blendshape_node = None
 xml_data_list = []
+start_frame_in_timeline=0
 
 class XmlData:
 
@@ -188,12 +189,13 @@ def get_graphics_root_group_and_set_text_field(*args):
 
 def set_playback_speed(facial_animation_clip_data):
     facial_animation_frames = facial_animation_clip_data['facialAnimationFrames']
-    frame_count = len(facial_animation_frames)
+    global facial_animation_frame_count
+    facial_animation_frame_count = len(facial_animation_frames)
     cmds.currentUnit(time='ntscf')
     cmds.playbackOptions(edit=True, animationStartTime=0,framesPerSecond=60)
-    cmds.playbackOptions(edit=True, animationEndTime=frame_count,framesPerSecond=60)
+    cmds.playbackOptions(edit=True, animationEndTime=facial_animation_frame_count,framesPerSecond=60)
     cmds.playbackOptions(edit=True, minTime=0,framesPerSecond=60)
-    cmds.playbackOptions(edit=True, maxTime=frame_count,framesPerSecond=60)
+    cmds.playbackOptions(edit=True, maxTime=facial_animation_frame_count,framesPerSecond=60)
 
 async def apply_given_json_file(path_of_file_to_load):
 
@@ -220,9 +222,12 @@ async def apply_given_json_file(path_of_file_to_load):
 
     character_geos = facial_animation_clip_data['characterGeos']
     facial_animation_frames = facial_animation_clip_data['facialAnimationFrames']
+
+
     is_failed = False
 
     all_geos_from_json = character_geos[0]["blendShapeNames"]
+
 
     for frame in range(0, len(facial_animation_frames)):
         blendshapes_per_frame = facial_animation_frames[frame]
@@ -253,15 +258,18 @@ async def apply_given_json_file(path_of_file_to_load):
             else:
                 break
 
-    # if not is_failed:
-    #    cmds.confirmDialog(title='Error', message=" Success ! ", button='OK')
-
     result = is_failed == False
 
     if not result:
         print("json import failed ! Make sure you have related json file for your animation exported from Animotive !")
     else:
         print("SUCCESS")
+
+    if result:
+        global start_frame_in_timeline
+        print("RESULT IS TRUE")
+        start_frame_in_timeline = facial_animation_clip_data['startFrameInTimeline']
+        print(start_frame_in_timeline)
 
     return result
 
@@ -431,7 +439,9 @@ async def create_tracks_from_sources(tuple_array,connected_xml_datas):
             if xml_value:
                 create_and_cut_clips_according_to_xml(xml_value,clip_name,track_name,joint_source_id,False)
             else:
-                cmds.timeEditorClip(clip_name, track=track_name, animSource=joint_source_id, startTime=0)
+                id=cmds.timeEditorClip(clip_name, track=track_name, animSource=joint_source_id, startTime=0)
+                cmds.timeEditorClip(clip_name,edit=True,clipId=id, track=track_name,startTime=0,trimStart=start_frame_in_timeline)
+                cmds.timeEditorClip(clip_name,edit=True,clipId=id, track=track_name,moveClip=int(start_frame_in_timeline)*-1)
 
         if facial_anim_source_id!=-1:
             track_id+=1
@@ -440,8 +450,8 @@ async def create_tracks_from_sources(tuple_array,connected_xml_datas):
             cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1)
             if xml_value:
                 create_and_cut_clips_according_to_xml(xml_value,facial_clip_name,track_name,facial_anim_source_id,True)
-
             else:
+                print("TOTAL FRAME : ",facial_animation_frame_count)
                 cmds.timeEditorClip(facial_clip_name, track=track_name, animSource=facial_anim_source_id, rootClipId=-1,startTime=0)
 
 def create_and_cut_clips_according_to_xml(xml_data_array,clip_name,track_name,source_id,is_facial):
@@ -454,11 +464,11 @@ def create_and_cut_clips_according_to_xml(xml_data_array,clip_name,track_name,so
         if is_facial:
             # face
             id = cmds.timeEditorClip(clip_name,track=track_name,animSource=source_id)
-            cmds.timeEditorClip(clip_name,edit=True,clipId=id,trimStart=in_frame,trimEnd=out_frame,startTime=int(xml_data.start_frame))
+            cmds.timeEditorClip(clip_name,edit=True,clipId=id,trimStart=in_frame+start_frame_in_timeline,trimEnd=out_frame,startTime=int(xml_data.start_frame))
         else:
             # body
             id = cmds.timeEditorClip(clip_name,track=track_name,animSource=source_id)
-            cmds.timeEditorClip(clip_name,edit=True,clipId=id,trimStart=in_frame,trimEnd=out_frame,startTime=int(xml_data.start_frame))
+            cmds.timeEditorClip(clip_name,edit=True,clipId=id,trimStart=in_frame+start_frame_in_timeline,trimEnd=out_frame,startTime=int(xml_data.start_frame))
 
 
 def legalize_string(name):
@@ -578,6 +588,7 @@ async def import_animations(*args):
     cmds.currentUnit(time='ntscf') # 60 frames per second
 
     for fbx_file_name in fbx_files:
+
         await remove_keyframes(root_group_selection[0], False)  # Remove keyframes from the body
         await remove_keyframes(facial_animation_target_selection[0], True)  # Remove keyframes from the face
         file_name_without_extension = os.path.splitext(fbx_file_name)[0]
@@ -602,8 +613,8 @@ async def import_animations(*args):
 
             facial_anim_result = await apply_given_json_file(full_json_path)
 
+        print("FRAME :",start_frame_in_timeline)
         full_path = os.path.join(import_directory,fbx_file_name)
-
 
         before_import_nodes = set(cmds.ls(dag=True, long=True))
         await import_single_fbx(os.path.join(import_directory,fbx_file_name),file_name_without_extension)
