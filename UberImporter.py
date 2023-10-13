@@ -195,16 +195,21 @@ def set_playback_speed(facial_animation_clip_data):
     cmds.playbackOptions(edit=True, minTime=0,framesPerSecond=60)
     cmds.playbackOptions(edit=True, maxTime=frame_count,framesPerSecond=60)
 
-
-def set_keyframes_from_json(path_of_file_to_load,name):
+async def apply_given_json_file(path_of_file_to_load):
 
     if facial_animation_target_selection is None:
-        print("Target object was not selected !")
-        return
+        cmds.confirmDialog(title='Warning', message="Facial animation target object wasn't selected. ", button='OK')
+        return False
+
+    if blendshape_node is None:
+        cmds.confirmDialog(title='Warning', message=" Selected facial animation target object doesn't have shape to bake the animation to ! ", button='OK')
+        return False
 
     if path_of_file_to_load is None:
-        print("No json file was selected..")
-        return
+        cmds.confirmDialog(title='Warning', message="No file path was given for facial animation. ", button='OK')
+        return False
+
+    print("Applying facial animation..")
 
     cmds.currentTime(0, edit=True)
     json_file = open(path_of_file_to_load, 'r')
@@ -215,9 +220,9 @@ def set_keyframes_from_json(path_of_file_to_load,name):
 
     character_geos = facial_animation_clip_data['characterGeos']
     facial_animation_frames = facial_animation_clip_data['facialAnimationFrames']
-    is_failed=False
+    is_failed = False
 
-    all_geos_from_json=character_geos[0]["blendShapeNames"]
+    all_geos_from_json = character_geos[0]["blendShapeNames"]
 
     for frame in range(0, len(facial_animation_frames)):
         blendshapes_per_frame = facial_animation_frames[frame]
@@ -236,38 +241,27 @@ def set_keyframes_from_json(path_of_file_to_load,name):
             if is_failed:
                 break
 
-            targetBlendShape = name + "." + bs_name
+            targetBlendShape = blendshape_node + "." + bs_name
             if not is_failed:
                 try:
                     cmds.setKeyframe(targetBlendShape, time=frame, value=bs_value)
                 except Exception as e:
-                    #cmds.confirmDialog(title='Error', message="There's no node with the name '"+targetBlendShape+"' please select another object and try again ", button='OK')
-                    print("Exception ! : ",e)
+                    # cmds.confirmDialog(title='Error', message="There's no node with the name '"+targetBlendShape+"' please select another object and try again ", button='OK')
+                    print("Exception ! : ", e)
                     is_failed = True
                     break
             else:
                 break
 
-    #if not is_failed:    
+    # if not is_failed:
     #    cmds.confirmDialog(title='Error', message=" Success ! ", button='OK')
 
-    result = is_failed==False
-    return result # if it's not failed than it was a successful operation
-
-async def apply_given_json_file(full_json_path):
-    print("Applying facial animation..")
-
-    if blendshape_node is None:
-        print("FAILED : Selected object doesn't have shape to write animation to ..")
-        return False
-
-    result= set_keyframes_from_json(full_json_path, blendshape_node)
+    result = is_failed == False
 
     if not result:
         print("json import failed ! Make sure you have related json file for your animation exported from Animotive !")
     else:
         print("SUCCESS")
-
 
     return result
 
