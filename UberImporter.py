@@ -16,7 +16,7 @@ created_parent_constraints = []
 last_composition_name = ""
 blendshape_node = None
 xml_data_list = []
-start_frame_in_timeline=0
+
 
 class XmlData:
 
@@ -197,8 +197,7 @@ def set_playback_speed(facial_animation_clip_data):
     cmds.playbackOptions(edit=True, minTime=0,framesPerSecond=60)
     cmds.playbackOptions(edit=True, maxTime=facial_animation_frame_count,framesPerSecond=60)
 
-async def apply_given_json_file(path_of_file_to_load):
-
+async def apply_given_json_file(facial_animation_clip_data):
     if facial_animation_target_selection is None:
         cmds.confirmDialog(title='Warning', message="Facial animation target object wasn't selected. ", button='OK')
         return False
@@ -207,16 +206,12 @@ async def apply_given_json_file(path_of_file_to_load):
         cmds.confirmDialog(title='Warning', message=" Selected facial animation target object doesn't have shape to bake the animation to ! ", button='OK')
         return False
 
-    if path_of_file_to_load is None:
-        cmds.confirmDialog(title='Warning', message="No file path was given for facial animation. ", button='OK')
-        return False
+
 
     print("Applying facial animation..")
 
     cmds.currentTime(0, edit=True)
-    json_file = open(path_of_file_to_load, 'r')
 
-    facial_animation_clip_data = json.load(json_file)
     time_delta = facial_animation_clip_data["fixedDeltaTimeBetweenKeyFrames"]
     set_playback_speed(facial_animation_clip_data)
 
@@ -224,10 +219,10 @@ async def apply_given_json_file(path_of_file_to_load):
     facial_animation_frames = facial_animation_clip_data['facialAnimationFrames']
 
 
+
     is_failed = False
 
     all_geos_from_json = character_geos[0]["blendShapeNames"]
-
 
     for frame in range(0, len(facial_animation_frames)):
         blendshapes_per_frame = facial_animation_frames[frame]
@@ -257,19 +252,12 @@ async def apply_given_json_file(path_of_file_to_load):
                     break
             else:
                 break
-
     result = is_failed == False
 
     if not result:
         print("json import failed ! Make sure you have related json file for your animation exported from Animotive !")
     else:
         print("SUCCESS")
-
-    if result:
-        global start_frame_in_timeline
-        print("RESULT IS TRUE")
-        start_frame_in_timeline = facial_animation_clip_data['startFrameInTimeline']
-        print(start_frame_in_timeline)
 
     return result
 
@@ -419,9 +407,9 @@ async def create_track_and_editor_clip(clip_name, target_root,facial_anim_result
     return [joint_source_id,facial_anim_source_id,clip_name]
 
 
-async def create_tracks_from_sources(tuple_array,connected_xml_datas):
+async def create_tracks_from_sources(tuple_array,connected_xml_datas,start_frames):
     track_id=0
-
+    print(start_frames)
     for idx,tuple in enumerate(tuple_array):
         joint_source_id = tuple[0]
         facial_anim_source_id = tuple[1]
@@ -431,14 +419,15 @@ async def create_tracks_from_sources(tuple_array,connected_xml_datas):
         if clip_name in connected_xml_datas:
             xml_value = connected_xml_datas[clip_name]
 
+        start_frame_in_timeline=start_frames[idx]
         if joint_source_id!=-1:
             track_id+=1
             track_name = last_composition_name + "|track" + str(track_id)
             cmds.timeEditorTracks(path=last_composition_name, addTrack=-1, e=1)
-            print(xml_value,clip_name)
             if xml_value:
                 create_and_cut_clips_according_to_xml(xml_value,clip_name,track_name,joint_source_id,False)
             else:
+                print("START FRAME EDIT METHOD : ",start_frame_in_timeline)
                 id=cmds.timeEditorClip(clip_name, track=track_name, animSource=joint_source_id, startTime=0)
                 cmds.timeEditorClip(clip_name,edit=True,clipId=id, track=track_name,startTime=0,trimStart=start_frame_in_timeline)
                 cmds.timeEditorClip(clip_name,edit=True,clipId=id, track=track_name,moveClip=int(start_frame_in_timeline)*-1)
@@ -586,8 +575,11 @@ async def import_animations(*args):
     body_and_facial_animation_sources = []
     connected_xml_datas = {}
     cmds.currentUnit(time='ntscf') # 60 frames per second
+    is_fbx_process_failed=False
+    start_frames = []
 
     for fbx_file_name in fbx_files:
+
 
         await remove_keyframes(root_group_selection[0], False)  # Remove keyframes from the body
         await remove_keyframes(facial_animation_target_selection[0], True)  # Remove keyframes from the face
@@ -611,9 +603,18 @@ async def import_animations(*args):
             connected_json_file = connected_json_file[0]
             full_json_path = os.path.join(import_directory,connected_json_file)
 
-            facial_anim_result = await apply_given_json_file(full_json_path)
+            if full_json_path is None:
+                cmds.confirmDialog(title='Warning', message="No file path was given for facial animation. ",button='OK')
+            else:
+                json_file = open(full_json_path, 'r')
+                facial_animation_clip_data = json.load(json_file)
 
-        print("FRAME :",start_frame_in_timeline)
+                facial_anim_result = await apply_given_json_file(facial_animation_clip_data)
+                start_frame_in_timeline= facial_animation_clip_data['startFrameInTimeline']
+                start_frames.append(start_frame_in_timeline)
+        else:
+            start_frames.append(0)
+
         full_path = os.path.join(import_directory,fbx_file_name)
 
         before_import_nodes = set(cmds.ls(dag=True, long=True))
@@ -639,12 +640,15 @@ async def import_animations(*args):
             await remove_keyframes(facial_animation_target_selection[0], True)  # Remove keyframes from the face
         except Exception as e:
             print("An error occured : ",e)
+            is_fbx_process_failed=True
         finally:
             cmds.delete(root_node_of_imported)
 
-    await create_tracks_from_sources(body_and_facial_animation_sources,connected_xml_datas)
-    mute_all_tracks_in_composition(last_composition_name)
-    cmds.refresh()
+    if not is_fbx_process_failed:
+
+        await create_tracks_from_sources(body_and_facial_animation_sources,connected_xml_datas,start_frames)
+        mute_all_tracks_in_composition(last_composition_name)
+        cmds.refresh()
 
 
 def on_button_click(*args):
