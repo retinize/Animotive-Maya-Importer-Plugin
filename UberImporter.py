@@ -534,7 +534,16 @@ def browse_xml_file():
 def add_attributes_to_layer(list_of_attributes,layer_name):
     for full_attr_path in list_of_attributes:
         cmds.animLayer(layer_name, edit=True, attribute=full_attr_path)
-    
+
+def custom_sort(fbx_file_name, order):
+    fbx_without_extension = os.path.splitext(fbx_file_name)[0]
+    for index, prefix in enumerate(order):
+
+        if prefix.startswith(fbx_without_extension):
+            return index
+    return len(order)
+
+
 async def import_animations(*args):
     if import_directory is None or not import_directory :
         cmds.confirmDialog(title='Error', message='Please browse a import_directory to import FBX files from', button='OK')
@@ -578,8 +587,14 @@ async def import_animations(*args):
     is_fbx_process_failed=False
     start_frames = []
 
-    for fbx_file_name in fbx_files:
+    xml_file_names = []
 
+    for xml_data in xml_data_list:
+        xml_file_names.append(xml_data.file_name)
+
+    sorted_fbx = sorted(fbx_files, key=lambda s: custom_sort(s, xml_file_names))
+
+    for fbx_file_name in sorted_fbx:
 
         await remove_keyframes(root_group_selection[0], False)  # Remove keyframes from the body
         await remove_keyframes(facial_animation_target_selection[0], True)  # Remove keyframes from the face
@@ -595,6 +610,8 @@ async def import_animations(*args):
 
         else:
             connected_xml_datas[file_name_without_extension] = connected_xml_data
+
+
 
         connected_json_file = [json_file for json_file in json_files if json_file.startswith(scene_group_take_name_from_fbx)]
         facial_anim_result=False
