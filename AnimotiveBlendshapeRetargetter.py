@@ -59,19 +59,14 @@ def set_playback_speed(facial_animation_clip_data):
 
 
 def set_keyframes_from_json(*args):
+   
     if target_root is None:
         print("Target object was not selected !")
-        return
-
-    content = cmds.textField(blendshape_text_field, query=True, text=True)
-    if content is None:
-        print("You need to type a blendshape name..")
         return
 
     if pathOfFileToLoad is None:
         print("No json file was selected..")
         return
-
 
     file = open(pathOfFileToLoad[0], 'r')
 
@@ -82,11 +77,13 @@ def set_keyframes_from_json(*args):
     character_geos = facial_animation_clip_data['characterGeos']
     facial_animation_frames = facial_animation_clip_data['facialAnimationFrames']
     names = get_blendshape_node_from_geo()
-
+    is_failed=False
 
     for frame in range(0, len(facial_animation_frames)):
         blendshapes_per_frame = facial_animation_frames[frame]
 
+        if is_failed:
+            break
         for blendshapeUsed in blendshapes_per_frame["blendShapesUsed"]:
             geo_index = blendshapeUsed["g"]
             #geo_name = character_geos[geo_index]["skinnedMeshRendererName"]
@@ -95,11 +92,21 @@ def set_keyframes_from_json(*args):
             bs_name = blendshape_names[bs_index]
             bs_value = blendshapeUsed["v"] / 100
             # blendshapeIndex = blendshapeUsed['i']
-
+            
             for name in names:
-                if content in name:
-                    targetBlendShape = name + "." + bs_name
-                    cmds.setKeyframe(targetBlendShape, time=frame, value=bs_value)
+                targetBlendShape = name + "." + bs_name
+                if not is_failed:
+
+                    try:
+                        cmds.setKeyframe(targetBlendShape, time=frame, value=bs_value)
+                    except:
+                        cmds.confirmDialog(title='Message', message="There's no node with the name '"+targetBlendShape+"' please select another object and try again ", button='OK')
+                        is_failed=True
+    if not is_failed:    
+        cmds.confirmDialog(title='Message', message=" Success ! ", button='OK')
+
+                                      
+                
 
 
 if cmds.window('animation_transfer_window', exists=True):
@@ -117,9 +124,8 @@ cmds.text(label='Select target object to apply blendshape animation:')
 target_text_field = cmds.textField('target_textField', editable=False)
 target_button = cmds.button(label='Select', command=select_target_root)
 
-cmds.text(label='Write the blendshape node name that you want to apply animation to:')
-blendshape_text_field = cmds.textField(placeholderText='Enter your text here')
 
+cmds.text(label='')
 apply_button = cmds.button(label='Apply Animation', command=set_keyframes_from_json)
 
 cmds.text(label="--------------------------------------------------------------------------------------------------------------------------------------------------------------------", enable=False)
