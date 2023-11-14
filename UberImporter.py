@@ -14,7 +14,7 @@ facial_animation_target_selection =None
 root_bone_selection = None
 created_parent_constraints = []
 last_composition_name = ""
-blendshape_node = None
+blendshape_nodes = None
 xml_data_list = []
 
 
@@ -164,14 +164,15 @@ def mute_all_tracks_in_composition(composition_name):
 
 
 
-def get_blendshape_weight_attributes(p_blendshape_node):
+def get_blendshape_weight_attributes(p_blendshape_node_list):
     weight_attrs = []
 
-    num_weights = cmds.blendShape(p_blendshape_node, query=True, weightCount=True)
+    num_weights = cmds.blendShape(p_blendshape_node_list, query=True, weightCount=True)
 
-    for i in range(num_weights):
-        weight_attr = "{}.weight[{}]".format(p_blendshape_node, i)
-        weight_attrs.append(weight_attr)
+    for p_blendshape_node in p_blendshape_node_list:
+        for i in range(num_weights):
+            weight_attr = "{}.weight[{}]".format(p_blendshape_node, i)
+            weight_attrs.append(weight_attr)
 
     return weight_attrs
 
@@ -202,7 +203,7 @@ async def apply_given_json_file(facial_animation_clip_data):
         cmds.confirmDialog(title='Warning', message="Facial animation target object wasn't selected. ", button='OK')
         return False
 
-    if blendshape_node is None:
+    if blendshape_nodes is None:
         cmds.confirmDialog(title='Warning', message=" Selected facial animation target object doesn't have shape to bake the animation to ! ", button='OK')
         return False
 
@@ -218,17 +219,25 @@ async def apply_given_json_file(facial_animation_clip_data):
     character_geos = facial_animation_clip_data['characterGeos']
     facial_animation_frames = facial_animation_clip_data['facialAnimationFrames']
 
-
+    if not blendshape_nodes:
+        cmds.confirmDialog(title='Message',
+                           message="Selected target doesn't have any shape ... ",
+                           button='OK')
+        return
 
     is_failed = False
-
-    all_geos_from_json = character_geos[0]["blendShapeNames"]
+    fail_count = 0
 
     for frame in range(0, len(facial_animation_frames)):
         blendshapes_per_frame = facial_animation_frames[frame]
 
-        if is_failed:
+        if fail_count == len(blendshape_nodes):
+            cmds.confirmDialog(title='Warning',
+                               message="No matched shape found in selected object, please select another object and try again ",
+                               button='OK')
+            is_failed = True
             break
+
         for blendshapeUsed in blendshapes_per_frame["blendShapesUsed"]:
             geo_index = blendshapeUsed["g"]
             # geo_name = character_geos[geo_index]["skinnedMeshRendererName"]
@@ -238,20 +247,17 @@ async def apply_given_json_file(facial_animation_clip_data):
             bs_value = blendshapeUsed["v"] / 100
             # blendshapeIndex = blendshapeUsed['i']
 
-            if is_failed:
-                break
+            for name in blendshape_nodes:
+                targetBlendShape = name + "." + bs_name
 
-            targetBlendShape = blendshape_node + "." + bs_name
-            if not is_failed:
                 try:
                     cmds.setKeyframe(targetBlendShape, time=frame, value=bs_value)
-                except Exception as e:
-                    # cmds.confirmDialog(title='Error', message="There's no node with the name '"+targetBlendShape+"' please select another object and try again ", button='OK')
-                    print("Exception ! : ", e)
-                    is_failed = True
-                    break
-            else:
-                break
+                except:
+                    fail_count += 1
+                    continue
+                    # print("There's no node with the name '"+targetBlendShape+"' please select another object and try again ")
+
+
     result = is_failed == False
 
     if not result:
@@ -261,10 +267,10 @@ async def apply_given_json_file(facial_animation_clip_data):
 
     return result
 
-def get_blendshape_node(shapeNode):
+def get_blendshape_nodes(shapeNode):
     history = cmds.listHistory(shapeNode)
     blendshapes = cmds.ls(history, type='blendShape')
-    return blendshapes[0] if blendshapes else None
+    return blendshapes if blendshapes else None
 
 async def delete_blendshape_keyframes(transform_node):
     shapes = cmds.listRelatives(transform_node, shapes=True)
@@ -272,18 +278,18 @@ async def delete_blendshape_keyframes(transform_node):
         print("No shape node found for", transform_node)
         return
 
-    blendshapeNode = get_blendshape_node(shapes[0])
+    blendshapeNodes = get_blendshape_nodes(shapes[0])
 
-    if not blendshapeNode:
+    if not blendshapeNodes:
         print("No blendshape node found for", transform_node)
         return
 
-
-    numWeights = cmds.blendShape(blendshapeNode, query=True, weightCount=True)
-    for i in range(numWeights):
-        weightAttr = "{}.weight[{}]".format(blendshapeNode, i)
-        if cmds.keyframe(weightAttr, query=True, keyframeCount=True) > 0:
-            cmds.cutKey(weightAttr)
+    for blendshapeNode in blendshapeNodes:
+        numWeights = cmds.blendShape(blendshapeNode, query=True, weightCount=True)
+        for i in range(numWeights):
+            weightAttr = "{}.weight[{}]".format(blendshapeNode, i)
+            if cmds.keyframe(weightAttr, query=True, keyframeCount=True) > 0:
+                cmds.cutKey(weightAttr)
 
 async def set_all_blendshapes_to_zero(transform_node):
     shapes = cmds.listRelatives(transform_node, shapes=True)
@@ -291,7 +297,7 @@ async def set_all_blendshapes_to_zero(transform_node):
         print("No shape node found for", transform_node)
         return
 
-    blendshapeNode = get_blendshape_node(shapes[0])
+    blendshapeNode = get_blendshape_nodes(shapes[0])
 
     if not blendshapeNode:
         print("No blendshape node found for", transform_node)
@@ -482,18 +488,18 @@ async def remove_keyframes(root_object,should_remove_blendshapes):
         await delete_blendshape_keyframes(root_object)
       
 async def import_single_fbx(full_path,namespace):
-    # cmds.FBXImport("-f",full_path,'-caller "FBXMayaTranslator" -importFormat "fbx" -ns "Test"')
-    cmds.file(full_path,
-              i=True,  # import
-              type="FBX",
-              iv=True,  # ignoreVersion
-              ra=True,  # referenceAssemblies
-              mnc=False,  # mergeNamespacesOnClash
-              namespace=namespace,
-              options="v=0;",
-              pr=True,  # preserveReferences
-              itr="combine"  # importTimeRange
-              )
+    cmds.FBXImport("-f",full_path,'-caller "FBXMayaTranslator" -importFormat "fbx" -ns "Test"')
+    # cmds.file(full_path,
+    #           i=True,  # import
+    #           type="FBX",
+    #           iv=True,  # ignoreVersion
+    #           ra=True,  # referenceAssemblies
+    #           mnc=False,  # mergeNamespacesOnClash
+    #           namespace=namespace,
+    #           options="v=0;",
+    #           pr=True,  # preserveReferences
+    #           itr="combine"  # importTimeRange
+    #           )
 def import_xml(*args):
     global xml_data_list
     xml_file_full_path = browse_xml_file()
@@ -571,8 +577,8 @@ async def import_animations(*args):
         return
 
 
-    global blendshape_node
-    blendshape_node = get_blendshape_node(facial_animation_target_selection[0])
+    global blendshape_nodes
+    blendshape_nodes = get_blendshape_nodes(facial_animation_target_selection[0])
 
 
     load_fbx_plugin()
@@ -660,6 +666,8 @@ async def import_animations(*args):
             is_fbx_process_failed=True
         finally:
             cmds.delete(root_node_of_imported)
+
+
 
     if not is_fbx_process_failed:
 
