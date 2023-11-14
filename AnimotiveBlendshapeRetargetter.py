@@ -40,16 +40,15 @@ def get_blendshape_node_from_geo():
     obj_selection = target_root
 
     history = cmds.listHistory(obj_selection)
+
     for node in history:
         if cmds.nodeType(node) == 'blendShape':
             nodes.append(node)
-
     return (nodes)
 
 
-def set_playback_speed(facial_animation_clip_data):
+def set_playback_speed(facial_animation_frames):
 
-    facial_animation_frames = facial_animation_clip_data['facialAnimationFrames']
     frame_count = len(facial_animation_frames)
     cmds.currentUnit(time='ntscf')
     cmds.playbackOptions(edit=True, animationStartTime=0)
@@ -68,22 +67,34 @@ def set_keyframes_from_json(*args):
         print("No json file was selected..")
         return
 
+    cmds.currentTime(0, edit=True)
     file = open(pathOfFileToLoad[0], 'r')
 
     facial_animation_clip_data = json.load(file)
 
-    set_playback_speed(facial_animation_clip_data)
+    facial_animation_frames = facial_animation_clip_data['facialAnimationFrames']
+    set_playback_speed(facial_animation_frames)
 
     character_geos = facial_animation_clip_data['characterGeos']
-    facial_animation_frames = facial_animation_clip_data['facialAnimationFrames']
     names = get_blendshape_node_from_geo()
-    is_failed=False
+
+    if not names:
+        cmds.confirmDialog(title='Message',
+                           message="Selected target doesn't have any shape ... ",
+                           button='OK')
+        return
+
+    is_failed = False
+    fail_count = 0
 
     for frame in range(0, len(facial_animation_frames)):
         blendshapes_per_frame = facial_animation_frames[frame]
 
-        if is_failed:
+        if fail_count==len(names):
+            cmds.confirmDialog(title='Warning', message="No matched shape found in selected object, please select another object and try again ", button='OK')
+            is_failed=True
             break
+
         for blendshapeUsed in blendshapes_per_frame["blendShapesUsed"]:
             geo_index = blendshapeUsed["g"]
             #geo_name = character_geos[geo_index]["skinnedMeshRendererName"]
@@ -92,22 +103,20 @@ def set_keyframes_from_json(*args):
             bs_name = blendshape_names[bs_index]
             bs_value = blendshapeUsed["v"] / 100
             # blendshapeIndex = blendshapeUsed['i']
-            
+
             for name in names:
                 targetBlendShape = name + "." + bs_name
-                if not is_failed:
 
-                    try:
-                        cmds.setKeyframe(targetBlendShape, time=frame, value=bs_value)
-                    except:
-                        cmds.confirmDialog(title='Message', message="There's no node with the name '"+targetBlendShape+"' please select another object and try again ", button='OK')
-                        is_failed=True
-    if not is_failed:    
-        cmds.confirmDialog(title='Message', message=" Success ! ", button='OK')
+                try:
+                    cmds.setKeyframe(targetBlendShape, time=frame, value=bs_value)
+                except:
+                    fail_count+=1
+                    continue
+                    # print("There's no node with the name '"+targetBlendShape+"' please select another object and try again ")
 
-                                      
-                
 
+    if not is_failed :
+        cmds.confirmDialog(title='Message', message="Success ! ", button='OK')
 
 if cmds.window('animation_transfer_window', exists=True):
     cmds.deleteUI('animation_transfer_window')
