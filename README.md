@@ -5,6 +5,10 @@
 - Autodesk Maya (Tested with Maya 2020-2024)
 - Python (python 3 and above)
 
+# Youtube Tutorial Link
+[Click here to watch the video](https://www.youtube.com/watch?v=mv0F5DgHwiE)
+
+
 
 ## 1. Body Animation Transfer
 This script provides a simple tool for transferring animations between different character rigs in Autodesk Maya. The script works by comparing hierarchies and transferring animation from a source rig to a target rig.
