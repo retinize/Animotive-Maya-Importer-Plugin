@@ -408,7 +408,7 @@ async def create_track_and_editor_clip(clip_name, target_root,facial_anim_result
     facial_anim_source_id=-1
     if facial_anim_result:
         anim_source_name = clip_name+"_FacialAnimSource_"
-        facial_anim_source_id = cmds.timeEditorAnimSource(anim_source_name,calculateTiming=True, ao=blendshape_node, addRelatedKG=True, removeSceneAnimation=True,includeRoot=True,recursively=True,type=["animCurveTL", "animCurveTA", "animCurveTT","animCurveTU"])
+        facial_anim_source_id = cmds.timeEditorAnimSource(anim_source_name,calculateTiming=True, ao=";".join(blendshape_nodes), addRelatedKG=True, removeSceneAnimation=True,includeRoot=True,recursively=True,type=["animCurveTL", "animCurveTA", "animCurveTT","animCurveTU"])
 
     return [joint_source_id,facial_anim_source_id,clip_name]
 
@@ -488,18 +488,20 @@ async def remove_keyframes(root_object,should_remove_blendshapes):
         await delete_blendshape_keyframes(root_object)
       
 async def import_single_fbx(full_path,namespace):
-    cmds.FBXImport("-f",full_path,'-caller "FBXMayaTranslator" -importFormat "fbx" -ns "Test"')
-    # cmds.file(full_path,
-    #           i=True,  # import
-    #           type="FBX",
-    #           iv=True,  # ignoreVersion
-    #           ra=True,  # referenceAssemblies
-    #           mnc=False,  # mergeNamespacesOnClash
-    #           namespace=namespace,
-    #           options="v=0;",
-    #           pr=True,  # preserveReferences
-    #           itr="combine"  # importTimeRange
-    #           )
+    # cmds.FBXImport("-f",full_path,'-caller "FBXMayaTranslator" -importFormat "fbx" -ns "Test"')
+    cmds.file(full_path,
+              i=True,  # import
+              type="FBX",
+              iv=True,  # ignoreVersion
+              ra=True,  # referenceAssemblies
+              mnc=False,  # mergeNamespacesOnClash
+              namespace=namespace,
+              options="v=0;",
+              pr=True,  # preserveReferences
+              itr="combine"  # importTimeRange
+              )
+
+
 def import_xml(*args):
     global xml_data_list
     xml_file_full_path = browse_xml_file()
@@ -555,9 +557,10 @@ async def import_animations(*args):
         cmds.confirmDialog(title='Error', message='Please browse a import_directory to import FBX files from', button='OK')
         return
 
-    if len(xml_data_list)==0:
-        cmds.confirmDialog(title='Error', message='Please choose an XML file', button='OK')
-        return
+    # Commented this to make XML file optional
+    # if len(xml_data_list)==0:
+    #     cmds.confirmDialog(title='Error', message='Please choose an XML file', button='OK')
+    #     return
 
 
     if fbx_files is None or len(fbx_files)==0:
@@ -663,10 +666,13 @@ async def import_animations(*args):
             await remove_keyframes(facial_animation_target_selection[0], True)  # Remove keyframes from the face
         except Exception as e:
             print("An error occured : ",e)
-            is_fbx_process_failed=True
-        finally:
-            cmds.delete(root_node_of_imported)
+            cmds.confirmDialog(title='Error',
+                               message='An error has occured please check the logs for more details',
+                               button='OK')
 
+            is_fbx_process_failed=True
+        # finally:
+        #     cmds.delete(root_node_of_imported)
 
 
     if not is_fbx_process_failed:
@@ -674,6 +680,8 @@ async def import_animations(*args):
         await create_tracks_from_sources(body_and_facial_animation_sources,connected_xml_datas,start_frames)
         mute_all_tracks_in_composition(last_composition_name)
         cmds.refresh()
+        cmds.confirmDialog(title='Message', message='Success !', button='OK')
+
 
 
 def on_button_click(*args):
@@ -692,7 +700,7 @@ cmds.textField('user_selected_import_directory_textField', editable=False)
 cmds.button(label='Choose Import Directory', command=choose_import_directory_and_retrieve_files)
 
 cmds.text(label='')
-cmds.text(label='Select xml file :')
+cmds.text(label='( OPTIONAL )Select xml file :')
 cmds.textField('user_selected_xml_text_field', editable=False)
 cmds.button(label='Choose XML', command=import_xml)
 
