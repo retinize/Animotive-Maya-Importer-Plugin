@@ -124,7 +124,8 @@ def create_parent_constraint(animated_children, target_children):
     for animated_child in animated_children:
         animated_child_name = animated_child.split(':')[-1]
         for target_child in target_children:
-            if animated_child_name in target_child:
+            target_child_name = target_child.split(':')[-1]
+            if animated_child_name in target_child_name:
                 is_root = target_child == user_selected_root_bone[0]
                 is_hips = is_parent(user_selected_root_bone[0],target_child)
                 constraint = None
